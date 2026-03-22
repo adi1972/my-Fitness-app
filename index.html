@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#f97316">
+  <title>My Gym App</title>
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Service Worker registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js')
+          .catch(err => console.warn('SW registration failed:', err));
+      });
+    }
+  </script>
+
+  <!-- Google Identity Services — loaded async; calls initGoogleFit() when ready -->
+  <script src="https://accounts.google.com/gsi/client" async defer
+          onload="if(typeof initGoogleFit==='function') initGoogleFit()"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    :root {
+      --bg: #0a0f1a; --surface: rgba(31,41,55,0.82); --surface2: rgba(55,65,81,0.80);
+      --accent: #f97316; --blue: #3b82f6; --text: #f9fafb;
+      --text2: #9ca3af; --danger: #ef4444; --success: #22c55e;
+      --purple: #a855f7; --yellow: #f59e0b;
+      --border: rgba(75,85,99,0.7); --radius: 12px;
+    }
+    html, body { background: transparent; }
+    body {
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh; max-width: 440px; margin: 0 auto;
+      padding-bottom: 80px; overscroll-behavior: none;
+    }
+    /* Fixed full-screen background — works on all mobile browsers */
+    #app-bg {
+      position: fixed; inset: 0; z-index: -1;
+      background: #0a0f1a url('Photos/Background app.png') center center / cover no-repeat;
+    }
+    /* ── HEADER ── */
+    .header {
+      background: rgba(17,24,39,0.80); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      padding: 12px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+      border-bottom: 1px solid var(--border);
+    }
+    .header h1 { font-size: 19px; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
+    .header-right { text-align: right; }
+    .header-date { font-size: 10px; color: var(--text2); }
+    #header-clock { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text); }
+
+    /* ── NAV ── */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 440px;
+      background: rgba(17,24,39,0.80); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      display: flex; border-top: 1px solid var(--border); z-index: 100;
+    }
+    .nav-btn {
+      flex: 1; padding: 10px 4px; background: none; border: none;
+      color: var(--text2); font-size: 10px;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      cursor: pointer; transition: color 0.2s; position: relative;
+    }
+    .nav-btn.active { color: var(--accent); }
+    .nav-btn svg { width: 22px; height: 22px; }
+    .nav-dot {
+      position: absolute; top: 8px; right: calc(50% - 16px);
+      width: 8px; height: 8px; background: var(--accent); border-radius: 50%;
+    }
+
+    /* ── PAGES ── */
+    .page { display: none; padding: 20px; }
+    .page.active { display: block; }
+
+    /* ── CARD ── */
+    .card { background: var(--surface); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+    .card-title {
+      font-size: 11px; color: var(--text2); text-transform: uppercase;
+      letter-spacing: 0.8px; margin-bottom: 12px; font-weight: 600;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .card-title-icon { font-size: 17px; line-height: 1; }
+    .card-accent { border: 1.5px solid var(--accent); }
+
+    /* ── BUTTONS ── */
+    .btn {
+      padding: 14px 20px; border-radius: var(--radius); border: none;
+      font-size: 16px; font-weight: 700; cursor: pointer; width: 100%;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.97); opacity: 0.85; }
+    .btn-primary   { background: var(--accent); color: white; }
+    .btn-secondary { background: var(--surface2); color: var(--text); }
+    .btn-danger    { background: var(--danger); color: white; }
+    .btn-success   { background: var(--success); color: white; }
+    .btn-blue      { background: var(--blue); color: white; }
+    .btn-sm { padding: 9px 16px; font-size: 14px; border-radius: 9px; width: auto; }
+
+    /* ── INPUTS ── */
+    .input {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 9px; color: var(--text); font-size: 16px; padding: 13px 12px; width: 100%;
+      -webkit-appearance: none;
+    }
+    .input:focus { outline: none; border-color: var(--accent); }
+    select.input { appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
+    textarea.input { resize: none; min-height: 76px; font-family: inherit; line-height: 1.5; padding: 12px; }
+
+    /* ── TIMER ── */
+    .timer-display {
+      font-size: 80px; font-weight: 900; text-align: center;
+      font-variant-numeric: tabular-nums; letter-spacing: -3px;
+      color: var(--text); padding: 8px 0 4px; line-height: 1;
+    }
+    .timer-display.warning { color: var(--danger); }
+    .timer-display.done    { color: var(--success); }
+    .timer-progress { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin: 8px 0 14px; }
+    .timer-progress-bar { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.9s linear, background 0.3s; }
+    .preset-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 14px; }
+    .preset-btn {
+      padding: 7px 14px; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 20px; color: var(--text); font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .preset-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+    /* ── SETS ── */
+    .set-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .set-row:last-child { border-bottom: none; }
+    .set-num { width: 28px; height: 28px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+    .delete-btn { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 22px; padding: 0 4px; line-height: 1; }
+
+    /* ── BADGES ── */
+    .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+    .badge-orange { background: rgba(249,115,22,0.15); color: var(--accent); }
+    .badge-blue   { background: rgba(59,130,246,0.15); color: var(--blue); }
+
+    /* ── HISTORY / WORKOUT CARDS ── */
+    .history-item { background: var(--surface); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; cursor: pointer; transition: background 0.15s; }
+    .history-item:active { background: var(--surface2); }
+    .history-date { font-size: 12px; color: var(--text2); margin-bottom: 3px; }
+    .history-title { font-size: 17px; font-weight: 700; }
+    .history-stats { display: flex; gap: 8px; margin-top: 8px; }
+
+    /* ── SLEEP DISPLAY ── */
+    .sleep-total { background: var(--surface2); border-radius: 10px; padding: 14px; text-align: center; margin: 12px 0; }
+    .sleep-total-val { font-size: 32px; font-weight: 900; color: var(--blue); font-variant-numeric: tabular-nums; line-height: 1; }
+    .sleep-total-label { font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+    /* ── SLEEP PHASES ── */
+    .phase-row { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+    .phase-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .phase-name { font-size: 13px; font-weight: 600; flex: 1; }
+    .phase-inp { width: 88px; flex-shrink: 0; text-align: center; padding: 9px 8px !important; font-size: 15px !important; }
+    .phase-unit { font-size: 12px; color: var(--text2); flex-shrink: 0; }
+
+    /* ── SUPPLEMENTS ── */
+    .supp-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .supp-btn {
+      padding: 8px 13px; border-radius: 20px; border: 1.5px solid var(--border);
+      background: var(--surface2); color: var(--text2);
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 5px; transition: all 0.18s;
+    }
+    .supp-btn.taken { background: rgba(34,197,94,0.12); border-color: var(--success); color: var(--success); }
+    .supp-btn .sc { font-size: 14px; }
+
+    /* ── STAT TILES ── */
+    .stat-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    .stat-tile { background: var(--surface2); border-radius: 10px; padding: 14px; text-align: center; }
+    .stat-tile-val { font-size: 26px; font-weight: 900; line-height: 1; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+    .stat-tile-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.6px; }
+
+    /* ── CHART LEGEND ── */
+    .chart-legend { display: flex; gap: 16px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text2); }
+    .legend-dot { width: 11px; height: 11px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ── DAILY LOG ITEMS ── */
+    .log-item { background: var(--surface); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; }
+    .log-date { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+    .log-stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+    /* ── EMPTY STATE ── */
+    .empty-state { text-align: center; padding: 56px 20px; color: var(--text2); }
+    .empty-state .icon { font-size: 52px; margin-bottom: 12px; }
+    .empty-state h3 { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ── MODAL ── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: flex; align-items: flex-end; justify-content: center; }
+    .modal { background: var(--surface); border-radius: 20px 20px 0 0; padding: 24px 20px; width: 100%; max-width: 440px; max-height: 85vh; overflow-y: auto; }
+    .modal-title { font-size: 19px; font-weight: 800; margin-bottom: 4px; }
+    .modal-close { background: none; border: none; color: var(--text2); font-size: 26px; cursor: pointer; padding: 0 4px; }
+
+    /* ── TOAST ── */
+    .toast { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); background: var(--success); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; font-weight: 700; z-index: 300; opacity: 0; transition: opacity 0.3s; white-space: nowrap; pointer-events: none; }
+
+    /* ── UTIL ── */
+    .row { display: flex; gap: 10px; }
+    .flex-1 { flex: 1; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .divider { height: 1px; background: var(--border); margin: 14px 0; }
+    .mt-8  { margin-top: 8px; }
+    .mt-12 { margin-top: 12px; }
+    .mt-16 { margin-top: 16px; }
+    .mb-8  { margin-bottom: 8px; }
+    .mb-12 { margin-bottom: 12px; }
+    .label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; display: block; margin-bottom: 6px; }
+    h2 { font-size: 22px; font-weight: 800; margin-bottom: 16px; letter-spacing: -0.5px; }
+    .section-title { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; margin-bottom: 10px; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+    .pulsing { animation: pulse 1s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+<div id="app-bg"></div>
+
+<!-- HEADER -->
+<div class="header">
+  <h1>💪 My Gym App</h1>
+  <div class="header-right">
+    <div id="header-clock"></div>
+    <div class="header-date" id="header-date"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══ HOME ═══ -->
+<div class="page active" id="page-home">
+  <h2>Acasă</h2>
+  <div id="home-content"></div>
+</div>
+
+<!-- ═══ WORKOUT ═══ -->
+<div class="page" id="page-workout">
+  <div id="workout-content"></div>
+</div>
+
+<!-- ═══ ZI (Daily Log) ═══ -->
+<div class="page" id="page-zi">
+  <h2>Jurnalul zilei</h2>
+  <div id="zi-content"></div>
+</div>
+
+<!-- ═══ HISTORY ═══ -->
+<div class="page" id="page-history">
+  <h2>Istoric</h2>
+  <div id="history-content"></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-home" onclick="navigate('home')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+    Acasă
+  </button>
+  <button class="nav-btn" id="nav-workout" onclick="navigate('workout')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M6.5 6.5h11M6.5 17.5h11M4 12h16M2 9l2 3-2 3M22 9l-2 3 2 3"/>
+    </svg>
+    Antrenament
+  </button>
+  <button class="nav-btn" id="nav-zi" onclick="navigate('zi')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <rect x="3" y="4" width="18" height="18" rx="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+    Zi
+  </button>
+  <button class="nav-btn" id="nav-history" onclick="navigate('history')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <circle cx="12" cy="12" r="10"/>
+      <polyline points="12 6 12 12 16 14"/>
+    </svg>
+    Istoric
+  </button>
+</nav>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" style="display:none" onclick="handleOverlayClick(event)">
+  <div class="modal" id="modal-body" onclick="event.stopPropagation()"></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// GYMLOG CONSTANTS
+// ══════════════════════════════════════════════════════
+const EXERCISES = [
+  "Arnold Press","Barbell Row","Bench Press","Bicep Curl","Bulgarian Split Squat",
+  "Cable Crunch","Cable Curl","Cable Fly","Calf Raise","Chest Dip",
+  "Concentration Curl","Deadlift","Decline Bench Press","Dumbbell Fly","Dumbbell Press",
+  "Face Pull","Front Raise","Front Squat","Glute Bridge","Hack Squat",
+  "Hammer Curl","Hanging Leg Raise","Hip Thrust","Incline Bench Press","Incline Dumbbell Curl",
+  "Lat Pulldown","Lateral Raise","Leg Curl","Leg Extension","Leg Press",
+  "Overhead Press","Overhead Tricep Extension","Plank","Pull-up","Push-up",
+  "Romanian Deadlift","Russian Twist","Scott Bench Curl","Seated Row","Shrug","Single-arm Row",
+  "Skull Crushers","Squat","Sumo Deadlift","T-bar Row","Tricep Dip",
+  "Tricep Pushdown","Upright Row","V-up","Wide-grip Pull-up"
+];
+
+const EXERCISE_ICONS = {
+  "Bench Press":"🏋️","Incline Bench Press":"🏋️","Decline Bench Press":"🏋️",
+  "Dumbbell Fly":"🏋️","Cable Fly":"🏋️","Chest Dip":"🏋️","Push-up":"🏋️","Dumbbell Press":"🏋️",
+  "Deadlift":"⚡","Romanian Deadlift":"⚡","Sumo Deadlift":"⚡",
+  "Pull-up":"🔙","Wide-grip Pull-up":"🔙","Lat Pulldown":"🔙","Seated Row":"🔙",
+  "Barbell Row":"🔙","Single-arm Row":"🔙","T-bar Row":"🔙","Face Pull":"🔙",
+  "Squat":"🦵","Front Squat":"🦵","Hack Squat":"🦵","Leg Press":"🦵",
+  "Bulgarian Split Squat":"🦵","Leg Curl":"🦵","Leg Extension":"🦵",
+  "Overhead Press":"💫","Arnold Press":"💫","Lateral Raise":"💫",
+  "Front Raise":"💫","Upright Row":"💫","Shrug":"🤷",
+  "Bicep Curl":"💪","Hammer Curl":"💪","Concentration Curl":"💪",
+  "Cable Curl":"💪","Incline Dumbbell Curl":"💪","Scott Bench Curl":"💪",
+  "Tricep Pushdown":"🦾","Skull Crushers":"🦾","Tricep Dip":"🦾","Overhead Tricep Extension":"🦾",
+  "Plank":"🔥","Cable Crunch":"🔥","Hanging Leg Raise":"🔥","Russian Twist":"🔥","V-up":"🔥",
+  "Hip Thrust":"🍑","Glute Bridge":"🍑","Calf Raise":"🦶"
+};
+function exIcon(name) { return EXERCISE_ICONS[name] || '🏅'; }
+
+const EXERCISE_INFO = {
+  "Bench Press":               { desc: "Presă compusă pentru pectoral, deltoid anterior și triceps. Omoplații retrași, bara la pieptul inferior.", diff: 2 },
+  "Incline Bench Press":       { desc: "Accentuează pieptul superior și deltoidul anterior. Setează banca la 30–45°.", diff: 2 },
+  "Decline Bench Press":       { desc: "Vizează pieptul inferior cu solicitare redusă pe umeri. Setează banca la −15–30°.", diff: 2 },
+  "Dumbbell Fly":              { desc: "Izolare pectoral printr-un arc larg. Menține o ușoară îndoire a coatelor pe tot parcursul.", diff: 2 },
+  "Cable Fly":                 { desc: "Tensiune constantă pe pectoral — mișcare excelentă de finisare. Controlează faza excentrică.", diff: 2 },
+  "Chest Dip":                 { desc: "Compus cu greutatea corpului pentru piept și triceps. Aplecă-te înainte pentru a muta accentul pe pectoral.", diff: 2 },
+  "Push-up":                   { desc: "Exercițiu pentru piept, umeri și triceps cu greutatea corpului. Menține core-ul tensionat.", diff: 1 },
+  "Dumbbell Press":            { desc: "Presă unilaterală pentru piept — fiecare braț lucrează independent.", diff: 2 },
+  "Deadlift":                  { desc: "Exercițiul compus principal. Lucrează lanțul posterior complet. Menține coloana neutră.", diff: 3 },
+  "Romanian Deadlift":         { desc: "Mișcare de balanțare pentru ischiogambieri și fesieri. Bara aproape de corp, genunchi ușor îndoiți.", diff: 2 },
+  "Sumo Deadlift":             { desc: "Stance larg mută sarcina pe adductori și fesieri. Vârfurile picioarelor spre exterior.", diff: 3 },
+  "Pull-up":                   { desc: "Compus pentru spate superior, dorsal larg și biceps. De la agățat complet la bărbia deasupra barei.", diff: 3 },
+  "Wide-grip Pull-up":         { desc: "Priza mai largă crește activarea dorsalului larg. Necesită mai multă mobilitate a umărului.", diff: 3 },
+  "Lat Pulldown":              { desc: "Tragere la cablu focusată pe dorsal larg. Aplecă-te ușor înapoi și trage bara spre pieptul superior.", diff: 1 },
+  "Seated Row":                { desc: "Spatele mijlociu, dorsal și romboid. Menține pieptul sus și coatele aproape de corp.", diff: 1 },
+  "Barbell Row":               { desc: "Constructor greu pentru spate. Șoldurile îndoite, trage bara spre pieptul inferior.", diff: 2 },
+  "Single-arm Row":            { desc: "Exercițiu unilateral pentru spate. Poziția sprijinită permite amplitudine completă a mișcării.", diff: 1 },
+  "T-bar Row":                 { desc: "Constructor pentru spatele gros și trapez. Priza neutră reduce dominanța bicepsului.", diff: 2 },
+  "Face Pull":                 { desc: "Sănătatea deltoidului posterior și a coifului rotatorilor. Trage sfoara până la nivelul frunții.", diff: 1 },
+  "Squat":                     { desc: "Exercițiu compus fundamental pentru cvadriceps, fesieri și ischiogambieri. Genunchii urmăresc direcția degetelor.", diff: 2 },
+  "Front Squat":               { desc: "Genuflexiune mai dominantă pentru cvadriceps. Bara pe deltoidul anterior — necesită mobilitate bună.", diff: 3 },
+  "Hack Squat":                { desc: "Mașină pentru izolarea cvadricepsului fără solicitare lombară. Execută până la adâncime completă.", diff: 2 },
+  "Leg Press":                 { desc: "Mașină compusă pentru picioare. Picioarele sus — accent pe fesieri; jos — accent pe cvadriceps.", diff: 1 },
+  "Bulgarian Split Squat":     { desc: "Genuflexiune pe un singur picior cu piciorul posterior ridicat. Cvadriceps și fesieri intense.", diff: 3 },
+  "Leg Curl":                  { desc: "Mașină de izolare pentru ischiogambieri. Controlează coborârea excentrică.", diff: 1 },
+  "Leg Extension":             { desc: "Mașină de izolare pentru cvadriceps. Extensie completă în vârf cu tempo controlat.", diff: 1 },
+  "Overhead Press":            { desc: "Presă compusă pentru umeri — deltoid anterior, lateral și trapez superior. Tensionează core-ul.", diff: 2 },
+  "Arnold Press":              { desc: "Presă rotativă cu gantere pentru acoperire completă a deltoidului. Numită după Arnold Schwarzenegger.", diff: 2 },
+  "Lateral Raise":             { desc: "Izolează deltoidul lateral pentru lățimea umărului. Conduce cu coatele, ușoară aplecire înainte.", diff: 1 },
+  "Front Raise":               { desc: "Vizează deltoidul anterior. Menține o ușoară îndoire a cotului și ridică până la nivelul umărului.", diff: 1 },
+  "Upright Row":               { desc: "Exercițiu pentru umeri și trapez superior. Trage până la nivelul bărbiei cu coatele evazate.", diff: 2 },
+  "Shrug":                     { desc: "Izolează trapezul. Folosește greutate mare, brațe drepte, ridicare completă cu pauză scurtă.", diff: 1 },
+  "Bicep Curl":                { desc: "Izolare clasică pentru biceps. Menține coatele fixe lângă corp cu amplitudine completă.", diff: 1 },
+  "Hammer Curl":               { desc: "Lucrează bicepsul și brahialul cu priza neutră. Mai mult antebraț și biceps extern.", diff: 1 },
+  "Concentration Curl":        { desc: "Izolare maximă pentru biceps. Cotul sprijinit pe coapsa internă. Tempo lent, contracție completă.", diff: 1 },
+  "Cable Curl":                { desc: "Tensiune constantă la cablu pe tot parcursul flexiei. Excelent pentru pompă și conexiunea minte-mușchi.", diff: 1 },
+  "Incline Dumbbell Curl":     { desc: "Alungirea capului lung al bicepsului pe bancă înclinată la 45–60°. Excelent pentru formă.", diff: 2 },
+  "Scott Bench Curl":          { desc: "Izolare biceps pe banca Scott. Elimină balansul corpului. Focus pe excentricul lent.", diff: 2 },
+  "Tricep Pushdown":           { desc: "Izolare triceps la cablu. Menține coatele fixe lângă corp și atinge extensia completă.", diff: 1 },
+  "Skull Crushers":            { desc: "Extensie EZ-bar cu tricepsul în decubit. Coboară lent spre frunte, coatele sus.", diff: 2 },
+  "Tricep Dip":                { desc: "Triceps compus cu greutatea corpului. Menține coatele spre spate și trunchiul vertical.", diff: 2 },
+  "Overhead Tricep Extension": { desc: "Alungește capul lung al tricepsului. Folosește cablu sau ganteră deasupra capului.", diff: 2 },
+  "Plank":                     { desc: "Exercițiu de stabilitate completă a core-ului. Menține șoldurile aliniate, respiră regulat.", diff: 1 },
+  "Cable Crunch":              { desc: "Flexie core ponderată la cablu. Rotunjește spatele inferior și apropie coatele de genunchi.", diff: 2 },
+  "Hanging Leg Raise":         { desc: "Abdomen inferior și flexori ai șoldului. Controlează balansul, ridică picioarele la orizontală sau mai sus.", diff: 3 },
+  "Russian Twist":             { desc: "Exercițiu de rotație pentru oblici. Adaugă o placă de greutate sau minge medicinală pentru progres.", diff: 2 },
+  "V-up":                      { desc: "Exercițiu dinamic pentru abdomen și flexorii șoldului simultan. Atinge mâinile spre picioare.", diff: 2 },
+  "Hip Thrust":                { desc: "Cel mai bun exercițiu focusat pe fesieri. Bara pe șolduri, împinge până la extensia completă.", diff: 2 },
+  "Glute Bridge":              { desc: "Activare fesieri cu greutatea corpului. Bun ca încălzire sau finisher. Contracție puternică sus.", diff: 1 },
+  "Calf Raise":                { desc: "Izolează gastrocnemiul și soleul. Amplitudine completă — alungire adâncă jos, ridicare completă sus.", diff: 1 }
+};
+function exInfo(name) {
+  return EXERCISE_INFO[name] || { desc: "Exercițiu personalizat — înregistrează seturile și urmărește progresul.", diff: 1 };
+}
+
+function diffBadge(level) {
+  const map = {
+    1: { label: "Începător",    color: "#22c55e", bg: "rgba(34,197,94,0.15)"  },
+    2: { label: "Intermediar",  color: "#f97316", bg: "rgba(249,115,22,0.15)" },
+    3: { label: "Avansat",      color: "#ef4444", bg: "rgba(239,68,68,0.15)"  }
+  };
+  const d = map[level] || map[1];
+  return `<span style="display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;background:${d.bg};color:${d.color}">${d.label}</span>`;
+}
+
+const RO_NAMES = {
+  "Arnold Press":"Presă Arnold","Barbell Row":"Ramat cu bara","Bench Press":"Împins la bancă",
+  "Bicep Curl":"Flexii biceps","Bulgarian Split Squat":"Genuflexiuni bulgărești",
+  "Cable Crunch":"Crunch la cablu","Cable Curl":"Flexii la cablu","Cable Fly":"Fluturări la cablu",
+  "Calf Raise":"Ridicări pe vârfuri","Chest Dip":"Flotări la bare paralele",
+  "Concentration Curl":"Flexii concentrate","Deadlift":"Îndreptări",
+  "Decline Bench Press":"Împins la bancă declinat","Dumbbell Fly":"Fluturări cu gantere",
+  "Dumbbell Press":"Împins cu gantere","Face Pull":"Trageri la față",
+  "Front Raise":"Ridicări frontale","Front Squat":"Genuflexiuni frontale",
+  "Glute Bridge":"Poduri fesiere","Hack Squat":"Genuflexiuni hack",
+  "Hammer Curl":"Flexii ciocan","Hanging Leg Raise":"Ridicări picioare în atârnat",
+  "Hip Thrust":"Împingeri șolduri","Incline Bench Press":"Împins la bancă înclinat",
+  "Incline Dumbbell Curl":"Flexii cu gantera pe bancă înclinată",
+  "Lat Pulldown":"Tracțiuni la helcometru","Lateral Raise":"Ridicări laterale",
+  "Leg Curl":"Flexii picioare","Leg Extension":"Extensii picioare","Leg Press":"Presă picioare",
+  "Overhead Press":"Presă deasupra capului","Overhead Tricep Extension":"Extensii triceps deasupra capului",
+  "Plank":"Scândura","Pull-up":"Tracțiuni","Push-up":"Flotări",
+  "Romanian Deadlift":"Îndreptări românești","Russian Twist":"Torsiuni rusești",
+  "Scott Bench Curl":"Flexii bancă Scott","Seated Row":"Ramat la scripete",
+  "Shrug":"Ridicări umeri","Single-arm Row":"Ramat unilateral",
+  "Skull Crushers":"Extensii craniu","Squat":"Genuflexiuni","Sumo Deadlift":"Îndreptări sumo",
+  "T-bar Row":"Ramat T-bar","Tricep Dip":"Flotări triceps",
+  "Tricep Pushdown":"Extensii triceps la cablu","Upright Row":"Ramat drept",
+  "V-up":"V-ups","Wide-grip Pull-up":"Tracțiuni priză largă"
+};
+function roName(n) { return RO_NAMES[n] || n; }
+
+// ══════════════════════════════════════════════════════
+// DAILY LOG CONSTANTS
+// ══════════════════════════════════════════════════════
+const DEFAULT_SUPPS = [
+  'Magnesium Glycinate','Creatine','L-Theanine',
+  'Vitamina C','Vitamina D+K','Colagen'
+];
+
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+const state = {
+  page: 'home',
+  timer: { duration: 90, remaining: 90, running: false, interval: null },
+  sessionInterval: null,
+  gfConnected: false
+};
+
+function fmtElapsed(totalSec) {
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+function startSessionClock(startTimeISO) {
+  stopSessionClock();
+  function tick() {
+    const sec = Math.floor((Date.now() - new Date(startTimeISO).getTime()) / 1000);
+    const el = document.getElementById('session-elapsed');
+    if (el) el.textContent = fmtElapsed(Math.max(0, sec));
+  }
+  tick();
+  state.sessionInterval = setInterval(tick, 1000);
+}
+function stopSessionClock() {
+  clearInterval(state.sessionInterval);
+  state.sessionInterval = null;
+}
+
+// ══════════════════════════════════════════════════════
+// GYMLOG STORAGE
+// ══════════════════════════════════════════════════════
+const db = {
+  getWorkouts: () => JSON.parse(localStorage.getItem('gl_workouts') || '[]'),
+  saveWorkouts: (w) => localStorage.setItem('gl_workouts', JSON.stringify(w)),
+  getActive: () => JSON.parse(localStorage.getItem('gl_active') || 'null'),
+  saveActive: (w) => localStorage.setItem('gl_active', JSON.stringify(w)),
+  clearActive: () => localStorage.removeItem('gl_active')
+};
+
+// ══════════════════════════════════════════════════════
+// DAILY LOG STORAGE
+// ══════════════════════════════════════════════════════
+const DD_STORE    = 'dd_entries_v1';
+const DD_SUPP_KEY = 'dd_custom_supps_v1';
+
+function ddLoadAll()          { return JSON.parse(localStorage.getItem(DD_STORE)    || '{}'); }
+function ddSaveAll(d)         { localStorage.setItem(DD_STORE, JSON.stringify(d)); }
+function ddLoadCustomSupps()  { return JSON.parse(localStorage.getItem(DD_SUPP_KEY) || '[]'); }
+function ddSaveCustomSupps(s) { localStorage.setItem(DD_SUPP_KEY, JSON.stringify(s)); }
+
+function todayKey() {
+  const d = new Date();
+  return d.getFullYear() + '-'
+    + String(d.getMonth()+1).padStart(2,'0') + '-'
+    + String(d.getDate()).padStart(2,'0');
+}
+
+function allSupps() {
+  return [...DEFAULT_SUPPS, ...ddLoadCustomSupps()];
+}
+
+function emptyEntry(date) {
+  const supps = {};
+  allSupps().forEach(s => supps[s] = false);
+  return {
+    date, _glSynced: false,
+    sleep: { bedtime:'', wakeup:'', phases:{ light:'', deep:'', rem:'', awake:'' } },
+    supplements: supps,
+    calories: '', steps: '',
+    workout: { notes:'', duration:'', totalWeight:'' }
+  };
+}
+
+// Today's daily entry (live working copy)
+let ddEntry = (function() {
+  const key = todayKey();
+  const saved = ddLoadAll()[key];
+  if (saved) {
+    allSupps().forEach(s => { if (saved.supplements[s] === undefined) saved.supplements[s] = false; });
+    return saved;
+  }
+  return emptyEntry(key);
+})();
+
+// ══════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════
+function navigate(page) {
+  if (state.page === 'workout' && page !== 'workout') stopSessionClock();
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('nav-' + page).classList.add('active');
+  state.page = page;
+  renders[page]();
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER: HOME
+// ══════════════════════════════════════════════════════
+function renderHome() {
+  const active = db.getActive();
+  const workouts = db.getWorkouts();
+  let html = '';
+
+  if (active) {
+    const exCount = active.exercises.length;
+    const setCount = active.exercises.reduce((a, e) => a + e.sets.length, 0);
+    html += `
+      <div class="card card-accent" style="margin-bottom:16px">
+        <div class="card-title">⚡ Antrenament activ</div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:6px">${active.name}</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">
+          ${exCount} exerciți${exCount !== 1 ? 'i' : 'u'} &nbsp;·&nbsp; ${setCount} seturi înregistrate
+        </div>
+        <button class="btn btn-primary" onclick="navigate('workout')">Continuă →</button>
+      </div>`;
+  } else {
+    html += `<button class="btn btn-primary mb-12" onclick="startWorkout()">＋ Începe antrenament</button>`;
+  }
+
+  if (workouts.length > 0) {
+    html += `<div class="section-title">Recente</div>`;
+    [...workouts].reverse().slice(0, 3).forEach(w => {
+      const sets = w.exercises.reduce((a, e) => a + e.sets.length, 0);
+      html += historyCard(w, sets);
+    });
+  } else if (!active) {
+    html += `
+      <div class="empty-state">
+        <div class="icon">🏋️</div>
+        <h3>Niciun antrenament încă</h3>
+        <p>Apasă butonul de sus pentru a începe prima sesiune</p>
+      </div>`;
+  }
+
+  // ── Google Fit status card ──
+  const gfBg    = state.gfConnected ? 'rgba(34,197,94,.10)' : 'rgba(249,115,22,.08)';
+  const gfBdr   = state.gfConnected ? 'rgba(34,197,94,.35)' : 'rgba(249,115,22,.35)';
+  const gfIcon  = state.gfConnected ? '🟢' : '⚪';
+  const gfLabel = state.gfConnected ? 'Google Fit conectat' : 'Google Fit neconectat';
+  const gfBtn   = state.gfConnected
+    ? `<button class="btn btn-secondary btn-sm" onclick="disconnectGoogleFit()" style="font-size:12px;padding:7px 14px">Deconectează</button>`
+    : `<button class="btn btn-primary btn-sm" onclick="connectGoogleFit()" style="background:var(--success);font-size:13px;padding:8px 16px">Conectează Google Fit</button>`;
+
+  html += `
+    <div style="border-radius:var(--radius);background:${gfBg};border:1.5px solid ${gfBdr};
+                padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:22px;line-height:1">🏃</span>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700">${gfIcon} ${gfLabel}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">
+          ${state.gfConnected ? 'Antrenamentele și pașii se sincronizează automat' : 'Conectează pentru a trimite datele în Google Fit → Samsung Health'}
+        </div>
+      </div>
+      ${gfBtn}
+    </div>`;
+
+  document.getElementById('home-content').innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER: WORKOUT
+// ══════════════════════════════════════════════════════
+function renderWorkout() {
+  const workout = db.getActive();
+  const el = document.getElementById('workout-content');
+
+  if (!workout) {
+    stopSessionClock();
+    el.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">💪</div>
+        <h3>Niciun antrenament activ</h3>
+        <p>Mergi la Acasă pentru a începe o sesiune</p>
+        <button class="btn btn-primary mt-12" style="max-width:200px;margin:16px auto 0" onclick="startWorkout();navigate('workout')">Începe antrenament</button>
+      </div>`;
+    return;
+  }
+
+  startSessionClock(workout.startTime);
+
+  const t = state.timer;
+  const progress = t.duration > 0 ? Math.round(((t.duration - t.remaining) / t.duration) * 100) : 100;
+  const isWarn = t.remaining <= 10 && t.remaining > 0 && t.running;
+  const isDone = t.remaining === 0;
+  const timerClass = isWarn ? 'warning' : isDone ? 'done' : '';
+  const timerColor = isWarn ? '#ef4444' : isDone ? '#22c55e' : 'var(--accent)';
+  const currentEx = workout.exercises[workout.exIndex] || null;
+  const prevExercises = workout.exercises.filter((_, i) => i < workout.exIndex);
+
+  let html = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <div style="font-size:12px;color:var(--text2)">Antrenament activ</div>
+        <div style="font-size:20px;font-weight:800">${workout.name}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+          <span style="font-size:11px;color:var(--text2)">⏱ Durată</span>
+          <span id="session-elapsed" style="font-size:22px;font-weight:900;color:var(--success);font-variant-numeric:tabular-nums;letter-spacing:-1px;line-height:1">00:00:00</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <button class="btn btn-sm btn-danger" onclick="finishWorkout()">Finalizare 🏁</button>
+        <button class="btn btn-sm btn-secondary" style="font-size:11px;padding:5px 10px" onclick="abandonWorkout()">✕ Abandonează</button>
+      </div>
+    </div>`;
+
+  html += `
+    <div class="card">
+      <div class="card-title">Temporizator pauză</div>
+      <div class="timer-display ${timerClass}${t.running ? ' pulsing' : ''}" id="timer-display">${fmtTime(t.remaining)}</div>
+      <div class="timer-progress">
+        <div class="timer-progress-bar" id="timer-bar" style="width:${progress}%;background:${timerColor}"></div>
+      </div>
+      <div class="preset-row">
+        ${[30,60,90,120,180].map(s => `
+          <button class="preset-btn${t.duration===s?' active':''}" onclick="setDuration(${s})">${s}s</button>
+        `).join('')}
+      </div>
+      <div class="row">
+        <button class="btn flex-1 ${t.running ? 'btn-secondary' : 'btn-blue'}" onclick="toggleTimer()">
+          ${t.running ? '⏸ Pauză' : '▶ Start'}
+        </button>
+        <button class="btn flex-1 btn-secondary" onclick="resetTimer()">↺ Reset</button>
+      </div>
+    </div>`;
+
+  html += `
+    <div class="card">
+      <div class="card-title">Adaugă exercițiu</div>
+      <select class="input" id="ex-select" onchange="onSelectExercise(this.value)">
+        <option value="">— Selectează exercițiu —</option>
+        ${EXERCISES.map(e => `<option value="${e}">${roName(e)}  /  ${e}</option>`).join('')}
+        <option value="__custom__">✏️ Exercițiu personalizat…</option>
+      </select>
+      <div id="custom-wrap" style="display:none;margin-top:10px">
+        <input class="input mb-8" id="custom-input" placeholder="Numele exercițiului" />
+        <button class="btn btn-primary" onclick="addCustom()">Adaugă</button>
+      </div>
+    </div>`;
+
+  if (currentEx) {
+    const info = exInfo(currentEx.name);
+    const ro = roName(currentEx.name);
+    const isCustom = !RO_NAMES[currentEx.name];
+    html += `
+      <div class="card card-accent">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:32px;line-height:1">${exIcon(currentEx.name)}</span>
+            <div>
+              <div style="font-size:20px;font-weight:800;line-height:1.2">${ro}</div>
+              ${!isCustom ? `<div style="font-size:12px;color:var(--text2);margin-top:2px">${currentEx.name}</div>` : ''}
+            </div>
+          </div>
+          <span class="badge badge-orange">Set ${currentEx.sets.length + 1}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          ${diffBadge(info.diff)}
+          <span style="font-size:13px;color:var(--text2);line-height:1.4">${info.desc}</span>
+        </div>
+        <div class="grid-2 mb-12">
+          <div>
+            <label class="label">Repetări</label>
+            <input type="number" class="input" id="inp-reps" placeholder="10" min="1" inputmode="numeric" />
+          </div>
+          <div>
+            <label class="label">Greutate (kg)</label>
+            <input type="number" class="input" id="inp-weight" placeholder="0 = BW" step="0.5" min="0" inputmode="decimal" />
+          </div>
+        </div>
+        <button class="btn btn-success" onclick="logSet()">✓ Înregistrează set</button>
+        ${currentEx.sets.length > 0 ? `
+          <div class="divider"></div>
+          <div class="section-title">Seturi înregistrate</div>
+          ${currentEx.sets.map((s, i) => `
+            <div class="set-row">
+              <div class="set-num">${i + 1}</div>
+              <div style="flex:1;font-size:16px;font-weight:600">${s.reps} rep.${s.weight > 0 ? ' × ' + s.weight + ' kg' : ' (greutate corp)'}</div>
+              <button class="delete-btn" onclick="deleteSet(${i})">×</button>
+            </div>`).join('')}
+        ` : ''}
+      </div>`;
+  }
+
+  if (prevExercises.length > 0) {
+    html += `<div class="section-title mt-8">Finalizate</div>`;
+    prevExercises.forEach(ex => {
+      const totalSets = ex.sets.length;
+      const totalReps = ex.sets.reduce((a, s) => a + s.reps, 0);
+      const maxWeight = Math.max(...ex.sets.map(s => s.weight || 0));
+      html += `
+        <div class="card" style="opacity:0.65;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:20px;line-height:1">${exIcon(ex.name)}</span>
+              <div>
+                <div style="font-weight:700">${roName(ex.name)}</div>
+                ${RO_NAMES[ex.name] ? `<div style="font-size:11px;color:var(--text2)">${ex.name}</div>` : ''}
+              </div>
+            </div>
+            <div style="font-size:13px;color:var(--text2)">${totalSets} seturi · ${totalReps} rep.${maxWeight > 0 ? ' · max ' + maxWeight + 'kg' : ''}</div>
+          </div>
+        </div>`;
+    });
+  }
+
+  el.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER: ZI (Daily Log)
+// ══════════════════════════════════════════════════════
+function renderZi() {
+  const e = ddEntry;
+  const sleepMins = calcSleepMins(e.sleep.bedtime, e.sleep.wakeup);
+  const supps = allSupps();
+
+  // Auto-populate workout from gl_workouts if synced flag is set
+  const todayWorkouts = db.getWorkouts().filter(w => w.date === todayKey());
+  if (todayWorkouts.length > 0 && !e._glSynced) {
+    const latest = todayWorkouts[todayWorkouts.length - 1];
+    if (!e.workout.duration) e.workout.duration = latest.duration ? latest.duration.toString() : '';
+    if (!e.workout.totalWeight) e.workout.totalWeight = latest.totalWeight ? latest.totalWeight.toString() : '';
+    if (!e.workout.notes) {
+      e.workout.notes = latest.exercises.map(ex => roName(ex.name)).join(', ');
+    }
+    e._glSynced = true;
+  }
+
+  const PHASES = [
+    { key:'light',  label:'Somn ușor',    color:'#60a5fa' },
+    { key:'deep',   label:'Somn profund', color:'#1d4ed8' },
+    { key:'rem',    label:'REM',          color:'#a855f7' },
+    { key:'awake',  label:'Treaz',        color:'#f59e0b' }
+  ];
+
+  let html = `
+  <div class="card">
+    <div class="card-title"><span class="card-title-icon">🌙</span>Somn</div>
+    <div class="grid-2">
+      <div>
+        <label class="label">Ora culcare</label>
+        <input type="time" class="input" id="sl-bed" value="${e.sleep.bedtime}" oninput="onSleepInput()">
+      </div>
+      <div>
+        <label class="label">Trezire</label>
+        <input type="time" class="input" id="sl-wake" value="${e.sleep.wakeup}" oninput="onSleepInput()">
+      </div>
+    </div>
+    <div class="sleep-total">
+      <div class="sleep-total-val" id="sleep-total-val">${sleepMins !== null ? fmtSleep(sleepMins) : '—'}</div>
+      <div class="sleep-total-label">Durată totală somn</div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-title">Faze somn (minute)</div>
+    ${PHASES.map(p => `
+    <div class="phase-row">
+      <div class="phase-dot" style="background:${p.color}"></div>
+      <div class="phase-name">${p.label}</div>
+      <input type="number" class="input phase-inp" id="ph-${p.key}"
+             placeholder="0" min="0" inputmode="numeric"
+             value="${e.sleep.phases[p.key] || ''}"
+             oninput="ddEntry.sleep.phases['${p.key}'] = this.value">
+      <span class="phase-unit">min</span>
+    </div>`).join('')}
+  </div>`;
+
+  html += `
+  <div class="card">
+    <div class="card-title"><span class="card-title-icon">💊</span>Suplimente</div>
+    <div class="supp-grid" id="supp-grid">
+      ${supps.map((s, i) => `
+      <button class="supp-btn${e.supplements[s] ? ' taken' : ''}" onclick="toggleSupp(${i})">
+        <span class="sc">${e.supplements[s] ? '✓' : '○'}</span>${s}
+      </button>`).join('')}
+    </div>
+    <div class="row">
+      <input type="text" class="input flex-1" id="new-supp" placeholder="Adaugă supliment…" style="font-size:14px;padding:10px 12px">
+      <button class="btn btn-secondary btn-sm" onclick="addCustomSupp()">＋</button>
+    </div>
+  </div>`;
+
+  const cal = e.calories ? Number(e.calories) : null;
+  const stp = e.steps    ? Number(e.steps)    : null;
+  html += `
+  <div class="card">
+    <div class="card-title"><span class="card-title-icon">🍽️</span>Nutriție &amp; Activitate</div>
+    <div class="grid-2">
+      <div>
+        <label class="label">Calorii (kcal)</label>
+        <input type="number" class="input" id="inp-cal" placeholder="2000"
+               value="${e.calories}" inputmode="numeric" oninput="ddEntry.calories = this.value">
+      </div>
+      <div>
+        <label class="label">Număr pași</label>
+        <input type="number" class="input" id="inp-steps" placeholder="8000"
+               value="${e.steps}" inputmode="numeric" oninput="ddEntry.steps = this.value">
+      </div>
+    </div>
+    ${cal || stp ? `
+    <div class="stat-tiles">
+      ${cal ? `<div class="stat-tile">
+        <div class="stat-tile-val" style="color:var(--accent)">${cal.toLocaleString()}</div>
+        <div class="stat-tile-label">kcal</div>
+      </div>` : ''}
+      ${stp ? `<div class="stat-tile">
+        <div class="stat-tile-val" style="color:var(--success)">${stp.toLocaleString()}</div>
+        <div class="stat-tile-label">pași</div>
+      </div>` : ''}
+    </div>` : ''}
+  </div>`;
+
+  const wSynced = e._glSynced && (e.workout.duration || e.workout.totalWeight);
+  html += `
+  <div class="card">
+    <div class="card-title">
+      <span class="card-title-icon">💪</span>Rezumat antrenament
+      ${wSynced ? '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--success);margin-left:auto">sincronizat automat</span>' : ''}
+    </div>
+    <div style="margin-bottom:10px">
+      <label class="label">Note</label>
+      <textarea class="input" id="inp-wnotes"
+                placeholder="Ex: Piept + triceps — împins la bancă 80 kg × 4 seturi…"
+                oninput="ddEntry.workout.notes = this.value">${e.workout.notes || ''}</textarea>
+    </div>
+    <div class="grid-2">
+      <div>
+        <label class="label">Durată (min)</label>
+        <input type="number" class="input" id="inp-wdur" placeholder="60"
+               value="${e.workout.duration}" inputmode="numeric" oninput="ddEntry.workout.duration = this.value">
+      </div>
+      <div>
+        <label class="label">Greutate totală (kg)</label>
+        <input type="number" class="input" id="inp-wwt" placeholder="0"
+               value="${e.workout.totalWeight}" inputmode="numeric" oninput="ddEntry.workout.totalWeight = this.value">
+      </div>
+    </div>
+  </div>`;
+
+  html += `<button class="btn btn-primary" style="margin-bottom:10px" onclick="saveToday()">💾 Salvează ziua</button>`;
+
+  document.getElementById('zi-content').innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER: HISTORY (unified — sleep + workout charts + log + workout cards)
+// ══════════════════════════════════════════════════════
+function renderHistory() {
+  const workouts = db.getWorkouts();
+  const ddAll = ddLoadAll();
+  const ddDates = Object.keys(ddAll).sort();
+  const el = document.getElementById('history-content');
+
+  let html = '';
+
+  // ── Sleep chart (30 days from dd_entries_v1) ──
+  const sleepDays = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.getFullYear() + '-'
+      + String(d.getMonth()+1).padStart(2,'0') + '-'
+      + String(d.getDate()).padStart(2,'0');
+    const ent = ddAll[key];
+    const mins = ent ? calcSleepMins(ent.sleep.bedtime, ent.sleep.wakeup) : null;
+    sleepDays.push({
+      label: d.toLocaleDateString('ro-RO', { day:'numeric', month:'short' }),
+      mins, hasData: !!ent
+    });
+  }
+
+  html += `
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title"><span class="card-title-icon">🌙</span>Durată somn — 30 zile</div>
+    <canvas id="chart-sleep" style="width:100%;height:170px;display:block"></canvas>
+    <div class="chart-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>≥7h (bun)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>6–7h</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>&lt;6h</div>
+      <div class="legend-item" style="margin-left:6px">
+        <div style="width:22px;height:2px;background:rgba(34,197,94,.5);border-radius:1px"></div>8h optim
+      </div>
+    </div>
+  </div>`;
+
+  // ── Workout evolution chart (14 days from gl_workouts) ──
+  const wDays = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    const dw = workouts.filter(w => w.date === key);
+    wDays.push({
+      label: d.toLocaleDateString('ro-RO', { day:'numeric', month:'short' }),
+      duration: dw.reduce((a,w) => a + (w.duration||0), 0),
+      weight: dw.reduce((a,w) => a + (w.totalWeight||0), 0),
+      hasData: dw.length > 0
+    });
+  }
+
+  html += `
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title"><span class="card-title-icon">💪</span>Evoluție antrenamente — 14 zile</div>
+    <canvas id="chart-workout" style="width:100%;height:160px;display:block"></canvas>
+    <div class="chart-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Durată (min)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Greutate ÷10 (kg)</div>
+    </div>
+  </div>`;
+
+  // ── Recent daily log items ──
+  if (ddDates.length > 0) {
+    html += `<div class="section-title">Jurnal zilnic recent</div>`;
+    ddDates.slice().reverse().slice(0, 7).forEach(key => {
+      const ent = ddAll[key];
+      const sm = calcSleepMins(ent.sleep.bedtime, ent.sleep.wakeup);
+      const d = new Date(key + 'T12:00:00');
+      const taken = Object.entries(ent.supplements || {}).filter(([,v]) => v).map(([k]) => k);
+      html += `
+      <div class="log-item">
+        <div class="log-date">${d.toLocaleDateString('ro-RO', { weekday:'long', day:'numeric', month:'long' })}</div>
+        <div class="log-stats">
+          ${sm ? `<span class="badge" style="background:rgba(59,130,246,.15);color:var(--blue)">🌙 ${fmtSleep(sm)}</span>` : ''}
+          ${ent.calories ? `<span class="badge" style="background:rgba(249,115,22,.15);color:var(--accent)">🍽️ ${Number(ent.calories).toLocaleString()} kcal</span>` : ''}
+          ${ent.steps ? `<span class="badge" style="background:rgba(34,197,94,.15);color:var(--success)">👟 ${Number(ent.steps).toLocaleString()} pași</span>` : ''}
+          ${ent.workout.duration ? `<span class="badge" style="background:rgba(168,85,247,.15);color:var(--purple)">💪 ${ent.workout.duration} min</span>` : ''}
+          ${taken.length ? `<span class="badge" style="background:rgba(255,255,255,.06);color:var(--text2)">💊 ${taken.length} suppl.</span>` : ''}
+        </div>
+      </div>`;
+    });
+  }
+
+  // ── Workout history cards ──
+  if (workouts.length > 0) {
+    html += `<div class="section-title" style="margin-top:8px">Antrenamente</div>`;
+    [...workouts].reverse().forEach(w => {
+      const sets = w.exercises.reduce((a, e) => a + e.sets.length, 0);
+      html += historyCard(w, sets);
+    });
+  }
+
+  if (workouts.length === 0 && ddDates.length === 0) {
+    html = `
+      <div class="empty-state">
+        <div class="icon">📋</div>
+        <h3>Nicio dată încă</h3>
+        <p>Finalizează un antrenament sau salvează o zi pentru a vedea istoricul</p>
+      </div>`;
+  }
+
+  el.innerHTML = html;
+
+  requestAnimationFrame(() => {
+    drawSleepChart(sleepDays);
+    drawWorkoutEvolutionChart(wDays);
+  });
+}
+
+function historyCard(w, sets) {
+  const iconRow = w.exercises.map(e =>
+    `<span title="${roName(e.name)}" style="font-size:22px;line-height:1">${exIcon(e.name)}</span>`
+  ).join('');
+  const exNames = w.exercises.map(e => roName(e.name)).join(' · ');
+  return `
+    <div class="history-item" onclick="showDetail('${w.id}')">
+      <div class="history-date">${fmtDate(w.date)}${w.duration ? '  ·  ' + fmtDur(w.duration) : ''}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 6px">
+        <div class="history-title">${w.name}</div>
+        <div style="display:flex;gap:6px;flex-shrink:0;margin-left:10px">${iconRow || ''}</div>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;line-height:1.4">${exNames || '—'}</div>
+      <div class="history-stats">
+        <span class="badge badge-orange">${w.exercises.length} exerciți${w.exercises.length !== 1 ? 'i' : 'u'}</span>
+        <span class="badge badge-blue">${sets} seturi</span>
+        ${w.totalWeight ? `<span class="badge" style="background:rgba(34,197,94,.15);color:var(--success)">${w.totalWeight.toLocaleString()} kg</span>` : ''}
+      </div>
+    </div>`;
+}
+
+const renders = {
+  home: renderHome,
+  workout: renderWorkout,
+  zi: renderZi,
+  history: renderHistory
+};
+
+// ══════════════════════════════════════════════════════
+// WORKOUT ACTIONS
+// ══════════════════════════════════════════════════════
+function startWorkout() {
+  const now = new Date();
+  const localDate = now.getFullYear() + '-'
+    + String(now.getMonth()+1).padStart(2,'0') + '-'
+    + String(now.getDate()).padStart(2,'0');
+  const w = {
+    id: Date.now().toString(),
+    name: 'Workout ' + now.toLocaleDateString('ro-RO', { weekday: 'short', day: 'numeric', month: 'short' }),
+    date: localDate,
+    startTime: now.toISOString(),
+    exercises: [],
+    exIndex: 0
+  };
+  db.saveActive(w);
+  updateNavDot(true);
+  navigate('workout');
+}
+
+function onSelectExercise(val) {
+  if (val === '__custom__') {
+    document.getElementById('custom-wrap').style.display = 'block';
+    document.getElementById('custom-input').focus();
+  } else if (val) {
+    addExercise(val);
+    document.getElementById('ex-select').value = '';
+  }
+}
+
+function addCustom() {
+  const name = (document.getElementById('custom-input').value || '').trim();
+  if (!name) return;
+  addExercise(name);
+}
+
+function addExercise(name) {
+  const w = db.getActive();
+  if (!w) return;
+  if (w.exercises.length > 0) {
+    const cur = w.exercises[w.exIndex];
+    if (cur && cur.sets.length === 0) {
+      w.exercises[w.exIndex] = { name, sets: [] };
+      db.saveActive(w); renderWorkout(); return;
+    }
+  }
+  w.exercises.push({ name, sets: [] });
+  w.exIndex = w.exercises.length - 1;
+  db.saveActive(w);
+  renderWorkout();
+}
+
+function logSet() {
+  const w = db.getActive();
+  if (!w) return;
+  const ex = w.exercises[w.exIndex];
+  if (!ex) { showToast('Selectează un exercițiu mai întâi!'); return; }
+  const reps = parseInt(document.getElementById('inp-reps').value) || 0;
+  const weight = parseFloat(document.getElementById('inp-weight').value) || 0;
+  if (reps <= 0) { showToast('Introdu numărul de repetări'); return; }
+  ex.sets.push({ reps, weight });
+  db.saveActive(w);
+  resetTimer(false);
+  startTimer();
+  showToast(`Set ${ex.sets.length} înregistrat ✓`);
+  renderWorkout();
+  setTimeout(() => {
+    const ri = document.getElementById('inp-reps');
+    if (ri) { ri.value = ''; ri.focus(); }
+  }, 50);
+}
+
+function deleteSet(i) {
+  const w = db.getActive();
+  if (!w) return;
+  const ex = w.exercises[w.exIndex];
+  if (!ex) return;
+  ex.sets.splice(i, 1);
+  db.saveActive(w);
+  renderWorkout();
+}
+
+function finishWorkout() {
+  try {
+    const w = db.getActive();
+    if (!w) return;
+    w.exercises = w.exercises.filter(e => e.sets.length > 0);
+    if (w.exercises.length === 0) {
+      showToast('Adaugă cel puțin un set înainte de a finaliza.');
+      return;
+    }
+    stopTimer();
+    stopSessionClock();
+    w.duration = Math.round((Date.now() - new Date(w.startTime).getTime()) / 60000);
+    w.durationSec = Math.floor((Date.now() - new Date(w.startTime).getTime()) / 1000);
+    w.totalWeight = w.exercises.reduce((a, e) => a + e.sets.reduce((b, s) => b + (s.reps * (s.weight || 0)), 0), 0);
+
+    const all = db.getWorkouts();
+    all.push(w);
+    db.saveWorkouts(all);
+    db.clearActive();
+    updateNavDot(false);
+
+    // ── Auto-sync to daily log entry ──
+    const key = w.date || todayKey();
+    const ddAll = ddLoadAll();
+    if (!ddAll[key]) ddAll[key] = emptyEntry(key);
+    ddAll[key].workout.duration = w.duration.toString();
+    ddAll[key].workout.totalWeight = w.totalWeight.toString();
+    if (!ddAll[key].workout.notes) {
+      ddAll[key].workout.notes = w.exercises.map(ex => roName(ex.name)).join(', ');
+    }
+    ddAll[key]._glSynced = true;
+    ddSaveAll(ddAll);
+    // Refresh today's entry if this is today
+    if (key === todayKey()) {
+      ddEntry = ddAll[key];
+    }
+
+    showSummary(w);
+    // Sync to Google Fit (async — does not block UI)
+    syncWorkoutToGoogleFit(w);
+  } catch(err) {
+    showToast('Eroare la finalizare. Încearcă din nou.');
+  }
+}
+
+function abandonWorkout() {
+  if (!confirm('Abandonezi antrenamentul? Datele vor fi pierdute.')) return;
+  stopTimer();
+  stopSessionClock();
+  db.clearActive();
+  updateNavDot(false);
+  navigate('home');
+}
+
+function showSummary(w) {
+  const totalSets = w.exercises.reduce((a, e) => a + e.sets.length, 0);
+  const totalReps = w.exercises.reduce((a, e) => e.sets.reduce((b, s) => b + s.reps, 0) + a, 0);
+  const exList = w.exercises.map(e => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:22px">${exIcon(e.name)}</span>
+      <div>
+        <div style="font-weight:700;font-size:14px">${roName(e.name)}</div>
+        <div style="font-size:11px;color:var(--text2)">${e.sets.length} seturi · ${e.sets.reduce((a,s)=>a+s.reps,0)} rep. · ${e.sets.reduce((a,s)=>a+(s.reps*(s.weight||0)),0)} kg total</div>
+      </div>
+    </div>`).join('');
+
+  const html = `
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:16px">
+      <div class="modal-title">🎉 Antrenament finalizat!</div>
+      <button class="modal-close" onclick="closeSummary()">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <div style="background:var(--surface2);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Durată totală</div>
+        <div style="font-size:22px;font-weight:900;color:var(--success);font-variant-numeric:tabular-nums">${fmtElapsed(w.durationSec || 0)}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Greutate totală</div>
+        <div style="font-size:22px;font-weight:900;color:var(--accent)">${w.totalWeight.toLocaleString()} kg</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Seturi</div>
+        <div style="font-size:22px;font-weight:900;color:var(--blue)">${totalSets}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Repetări</div>
+        <div style="font-size:22px;font-weight:900;color:var(--blue)">${totalReps}</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Exerciții</div>
+    ${exList}
+    <div style="font-size:12px;color:var(--success);margin-top:10px;text-align:center">✓ Sincronizat automat în jurnalul zilei</div>
+    <button class="btn btn-primary mt-12" onclick="closeSummary()">✓ Gata</button>`;
+
+  document.getElementById('modal-body').innerHTML = html;
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+
+function closeSummary() {
+  document.getElementById('modal-overlay').style.display = 'none';
+  navigate('home');
+}
+
+// ══════════════════════════════════════════════════════
+// TIMER
+// ══════════════════════════════════════════════════════
+function setDuration(s) {
+  stopTimer();
+  state.timer.duration = s;
+  state.timer.remaining = s;
+  state.timer.running = false;
+  renderWorkout();
+}
+
+function toggleTimer() {
+  if (state.timer.running) stopTimer();
+  else startTimer();
+  updateTimerUI();
+}
+
+function startTimer() {
+  const t = state.timer;
+  if (t.remaining <= 0) t.remaining = t.duration;
+  t.running = true;
+  clearInterval(t.interval);
+  t.interval = setInterval(() => {
+    t.remaining--;
+    if (t.remaining <= 0) {
+      t.remaining = 0;
+      stopTimer();
+      beep();
+      showToast('Pauza terminată — ridică greutatea! 💪');
+    }
+    updateTimerUI();
+  }, 1000);
+  updateTimerUI();
+}
+
+function stopTimer() {
+  clearInterval(state.timer.interval);
+  state.timer.running = false;
+}
+
+function resetTimer(doRender = true) {
+  stopTimer();
+  state.timer.remaining = state.timer.duration;
+  if (doRender) updateTimerUI();
+}
+
+function updateTimerUI() {
+  const d = document.getElementById('timer-display');
+  const b = document.getElementById('timer-bar');
+  if (!d) return;
+  const t = state.timer;
+  const isWarn = t.remaining <= 10 && t.remaining > 0;
+  const isDone = t.remaining === 0;
+  d.textContent = fmtTime(t.remaining);
+  d.className = 'timer-display' + (isWarn ? ' warning' : isDone ? ' done' : '') + (t.running ? ' pulsing' : '');
+  if (b) {
+    const pct = t.duration > 0 ? Math.round(((t.duration - t.remaining) / t.duration) * 100) : 100;
+    b.style.width = pct + '%';
+    b.style.background = isWarn ? '#ef4444' : isDone ? '#22c55e' : 'var(--accent)';
+  }
+}
+
+function beep() {
+  try {
+    const audio = new Audio('Sounds/soundreality-civil-defense-siren-128262.mp3');
+    audio.volume = 0.85;
+    audio.play().catch(() => {
+      /* fallback: synthetic beep if file can't load */
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [0, 0.2, 0.4].forEach(delay => {
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.connect(g); g.connect(ctx.destination);
+          o.type = 'sine'; o.frequency.value = 880;
+          g.gain.setValueAtTime(0.4, ctx.currentTime + delay);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.25);
+          o.start(ctx.currentTime + delay); o.stop(ctx.currentTime + delay + 0.3);
+        });
+      } catch (e2) {}
+    });
+  } catch (e) {}
+}
+
+// ══════════════════════════════════════════════════════
+// DAILY LOG INTERACTIONS
+// ══════════════════════════════════════════════════════
+function calcSleepMins(bedtime, wakeup) {
+  if (!bedtime || !wakeup) return null;
+  const [bh, bm] = bedtime.split(':').map(Number);
+  const [wh, wm] = wakeup.split(':').map(Number);
+  let mins = (wh * 60 + wm) - (bh * 60 + bm);
+  if (mins <= 0) mins += 1440;
+  return mins;
+}
+
+function fmtSleep(mins) {
+  if (mins === null || mins === undefined) return '—';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h + 'h' + (m > 0 ? ' ' + m + 'min' : '');
+}
+
+function onSleepInput() {
+  const bed  = document.getElementById('sl-bed').value;
+  const wake = document.getElementById('sl-wake').value;
+  ddEntry.sleep.bedtime = bed;
+  ddEntry.sleep.wakeup  = wake;
+  const mins = calcSleepMins(bed, wake);
+  const el = document.getElementById('sleep-total-val');
+  if (el) el.textContent = mins !== null ? fmtSleep(mins) : '—';
+}
+
+function toggleSupp(index) {
+  const name = allSupps()[index];
+  if (!name) return;
+  if (ddEntry.supplements[name] === undefined) ddEntry.supplements[name] = false;
+  ddEntry.supplements[name] = !ddEntry.supplements[name];
+  const grid = document.getElementById('supp-grid');
+  if (!grid) return;
+  grid.innerHTML = allSupps().map((s, i) => `
+    <button class="supp-btn${ddEntry.supplements[s] ? ' taken' : ''}" onclick="toggleSupp(${i})">
+      <span class="sc">${ddEntry.supplements[s] ? '✓' : '○'}</span>${s}
+    </button>`).join('');
+}
+
+function addCustomSupp() {
+  const inp  = document.getElementById('new-supp');
+  const name = (inp.value || '').trim();
+  if (!name) return;
+  const custom = ddLoadCustomSupps();
+  if ([...DEFAULT_SUPPS, ...custom].includes(name)) {
+    showToast('Suplimentul există deja.'); return;
+  }
+  custom.push(name);
+  ddSaveCustomSupps(custom);
+  ddEntry.supplements[name] = false;
+  inp.value = '';
+  renderZi();
+}
+
+function saveToday() {
+  const notes = document.getElementById('inp-wnotes');
+  if (notes) ddEntry.workout.notes = notes.value;
+  const all = ddLoadAll();
+  all[ddEntry.date] = ddEntry;
+  ddSaveAll(all);
+  showToast('Salvat cu succes ✓');
+  // Sync steps / calories to Google Fit (async)
+  syncDayToGoogleFit(ddEntry.date, ddEntry);
+  renderZi();
+}
+
+// ══════════════════════════════════════════════════════
+// CHART: SLEEP (30 days)
+// ══════════════════════════════════════════════════════
+function drawSleepChart(days) {
+  const canvas = document.getElementById('chart-sleep');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth, H = 170;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = { top:12, right:8, bottom:30, left:30 };
+  const cw  = W - pad.left - pad.right;
+  const ch  = H - pad.top  - pad.bottom;
+  const n   = days.length;
+  const MAX_H = 10;
+  const yS  = ch / MAX_H;
+
+  [2, 4, 6, 8, 10].forEach(h => {
+    const y = pad.top + ch - h * yS;
+    ctx.strokeStyle = 'rgba(55,65,81,0.7)'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cw, y); ctx.stroke();
+    ctx.fillStyle = '#6b7280'; ctx.font = '9px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(h + 'h', pad.left - 5, y + 3);
+  });
+
+  const optY = pad.top + ch - 8 * yS;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(34,197,94,0.45)'; ctx.lineWidth = 1.2;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(pad.left, optY); ctx.lineTo(pad.left + cw, optY); ctx.stroke();
+  ctx.restore();
+
+  const bw = Math.max(3, (cw / n) * 0.62);
+  days.forEach((d, i) => {
+    const cx = pad.left + i * (cw / n) + ((cw / n) - bw) / 2;
+    if (d.mins !== null && d.mins > 0) {
+      const hours = d.mins / 60;
+      const bh = Math.min(hours * yS, ch);
+      const by = pad.top + ch - bh;
+      const color = hours >= 7 ? '#3b82f6' : hours >= 6 ? '#f59e0b' : '#ef4444';
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(cx, by, bw, bh, [3,3,0,0]);
+      else ctx.rect(cx, by, bw, bh);
+      ctx.fill();
+    }
+    if (i === 0 || i === n-1 || i % 5 === 4) {
+      ctx.fillStyle = d.hasData ? '#f9fafb' : '#4b5563';
+      ctx.font = (d.hasData ? 'bold ' : '') + '9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(d.label, cx + bw / 2, pad.top + ch + 14);
+    }
+  });
+
+  ctx.strokeStyle = '#374151'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.left, pad.top + ch); ctx.lineTo(pad.left + cw, pad.top + ch); ctx.stroke();
+}
+
+// ══════════════════════════════════════════════════════
+// CHART: WORKOUT EVOLUTION (14 days)
+// ══════════════════════════════════════════════════════
+function drawWorkoutEvolutionChart(days) {
+  const canvas = document.getElementById('chart-workout');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth;
+  const H = 160;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = { top: 10, right: 8, bottom: 32, left: 8 };
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top - pad.bottom;
+  const n = days.length;
+  const bw = (cw / n) * 0.35;
+  const gap = (cw / n) * 0.04;
+
+  const maxDur = Math.max(...days.map(d => d.duration), 1);
+  const maxWt  = Math.max(...days.map(d => d.weight / 10), 1);
+  const scale  = Math.max(maxDur, maxWt);
+
+  days.forEach((d, i) => {
+    const x = pad.left + i * (cw / n) + (cw / n) * 0.13;
+    const durH = (d.duration / scale) * ch;
+    const wtH  = ((d.weight / 10) / scale) * ch;
+
+    ctx.fillStyle = 'rgba(249,115,22,0.85)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, pad.top + ch - durH, bw, durH, [3,3,0,0]);
+    else ctx.rect(x, pad.top + ch - durH, bw, durH);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(59,130,246,0.85)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x + bw + gap, pad.top + ch - wtH, bw, wtH, [3,3,0,0]);
+    else ctx.rect(x + bw + gap, pad.top + ch - wtH, bw, wtH);
+    ctx.fill();
+
+    ctx.fillStyle = d.hasData ? '#f9fafb' : '#6b7280';
+    ctx.font = (d.hasData ? 'bold ' : '') + '9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(d.label, x + bw + gap/2, pad.top + ch + 14);
+  });
+
+  ctx.strokeStyle = '#374151'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top + ch);
+  ctx.lineTo(pad.left + cw, pad.top + ch);
+  ctx.stroke();
+}
+
+// ══════════════════════════════════════════════════════
+// WORKOUT DETAIL MODAL
+// ══════════════════════════════════════════════════════
+function showDetail(id) {
+  const w = db.getWorkouts().find(x => x.id === id);
+  if (!w) return;
+  const sets = w.exercises.reduce((a, e) => a + e.sets.length, 0);
+  const totalReps = w.exercises.reduce((a, e) => e.sets.reduce((b, s) => b + s.reps, 0) + a, 0);
+
+  let html = `
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
+      <div>
+        <div class="modal-title">${w.name}</div>
+        <div style="font-size:12px;color:var(--text2)">${fmtDate(w.date)}${w.duration ? ' · ' + fmtDur(w.duration) : ''}</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div style="display:flex;gap:10px;margin:12px 0">
+      <span class="badge badge-orange">${w.exercises.length} exerciții</span>
+      <span class="badge badge-blue">${sets} seturi</span>
+      <span class="badge" style="background:rgba(34,197,94,.15);color:var(--success)">${totalReps} rep.</span>
+    </div>
+    <div class="divider"></div>`;
+
+  w.exercises.forEach(ex => {
+    const info = exInfo(ex.name);
+    html += `
+      <div style="margin-bottom:18px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-size:22px;line-height:1">${exIcon(ex.name)}</span>
+          <div>
+            <div style="font-size:16px;font-weight:700">${roName(ex.name)}</div>
+            ${RO_NAMES[ex.name] ? `<div style="font-size:11px;color:var(--text2)">${ex.name}</div>` : ''}
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          ${diffBadge(info.diff)}
+          <span style="font-size:12px;color:var(--text2);line-height:1.4">${info.desc}</span>
+        </div>
+        ${ex.sets.map((s, i) => `
+          <div class="set-row">
+            <div class="set-num">${i + 1}</div>
+            <div style="flex:1;font-size:15px;font-weight:600">${s.reps} rep.${s.weight > 0 ? ' × ' + s.weight + ' kg' : ' (greutate corp)'}</div>
+          </div>`).join('')}
+      </div>`;
+  });
+
+  html += `
+    <div class="divider"></div>
+    <button class="btn btn-danger" onclick="deleteWorkout('${w.id}')">🗑 Șterge antrenamentul</button>`;
+
+  document.getElementById('modal-body').innerHTML = html;
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+
+function deleteWorkout(id) {
+  if (!confirm('Ștergi acest antrenament? Acțiunea nu poate fi anulată.')) return;
+  db.saveWorkouts(db.getWorkouts().filter(w => w.id !== id));
+  closeModal();
+  renders[state.page]();
+  showToast('Antrenament șters');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').style.display = 'none';
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+// ══════════════════════════════════════════════════════
+// GOOGLE FIT INTEGRATION
+// ══════════════════════════════════════════════════════
+
+// ⚠️  Replace the string below with your real OAuth Client ID from
+//     https://console.cloud.google.com  → Credentials → OAuth 2.0 Client ID
+const GF_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID';
+
+const GF_SCOPES = [
+  'https://www.googleapis.com/auth/fitness.activity.write',
+  'https://www.googleapis.com/auth/fitness.activity.read',
+  'https://www.googleapis.com/auth/fitness.body.write'
+].join(' ');
+
+let gfTokenClient  = null;
+let gfAccessToken  = null;
+let gfDataSrcCache = {};           // { type → dataStreamId }
+
+function initGoogleFit() {
+  if (typeof google === 'undefined' || !google.accounts) return;
+  if (gfTokenClient) return;       // already set up
+
+  gfTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GF_CLIENT_ID,
+    scope: GF_SCOPES,
+    callback: async resp => {
+      if (resp.access_token) {
+        gfAccessToken = resp.access_token;
+        state.gfConnected = true;
+        localStorage.setItem('gf_connected', '1');
+        showToast('✅ Google Fit conectat!');
+        renderHome();
+      }
+    }
+  });
+
+  // Restore flag (token itself is NOT persisted — user must re-auth per session)
+  if (localStorage.getItem('gf_connected') === '1') {
+    state.gfConnected = true;
+  }
+}
+
+function connectGoogleFit() {
+  if (GF_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID') {
+    alert('Setează CLIENT_ID-ul tău Google în codul aplicației înainte de a conecta Google Fit.\n\nMergi la console.cloud.google.com → Credentials → OAuth 2.0 Client IDs');
+    return;
+  }
+  if (!gfTokenClient) {
+    showToast('Google Fit SDK nu este încă pregătit. Încearcă din nou în câteva secunde.');
+    return;
+  }
+  gfTokenClient.requestAccessToken();
+}
+
+function disconnectGoogleFit() {
+  gfAccessToken = null;
+  state.gfConnected = false;
+  gfDataSrcCache = {};
+  localStorage.removeItem('gf_connected');
+  localStorage.removeItem('gf_ds_steps');
+  localStorage.removeItem('gf_ds_calories');
+  showToast('Google Fit deconectat');
+  renderHome();
+}
+
+// Low-level helper — makes an authenticated request to the Fitness API
+async function gfFetch(path, method = 'GET', body = null) {
+  if (!gfAccessToken) return null;
+  try {
+    const res = await fetch('https://www.googleapis.com/fitness/v1/users/me/' + path, {
+      method,
+      headers: {
+        'Authorization': 'Bearer ' + gfAccessToken,
+        'Content-Type':  'application/json'
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    if (res.status === 401) {
+      // Token expired — prompt silent refresh
+      gfAccessToken = null;
+      if (gfTokenClient) gfTokenClient.requestAccessToken({ prompt: '' });
+      return null;
+    }
+    if (!res.ok) return null;
+    const text = await res.text();
+    return text ? JSON.parse(text) : {};
+  } catch (e) { return null; }
+}
+
+// Get or create a custom data source; returns the full dataStreamId
+async function gfGetDataSource(type) {
+  if (gfDataSrcCache[type]) return gfDataSrcCache[type];
+  const stored = localStorage.getItem('gf_ds_' + type);
+  if (stored) { gfDataSrcCache[type] = stored; return stored; }
+
+  const isSteps = type === 'steps';
+  const body = {
+    dataStreamName: isSteps ? 'GymLog Steps' : 'GymLog Calories',
+    type: 'raw',
+    application: { name: 'GymLog', version: '2.0', packageName: 'gymlog.webapp' },
+    dataType: {
+      name: isSteps ? 'com.google.step_count.delta' : 'com.google.calories.expended',
+      field: [{ name: isSteps ? 'steps' : 'calories',
+                format: isSteps ? 'integer' : 'floatPoint' }]
+    },
+    device: {
+      uid: 'gymlog_web_v2', type: 'phone',
+      version: '2.0', model: 'GymLog Web', manufacturer: 'GymLog'
+    }
+  };
+
+  const res = await gfFetch('dataSources', 'POST', body);
+  if (res && res.dataStreamId) {
+    gfDataSrcCache[type] = res.dataStreamId;
+    localStorage.setItem('gf_ds_' + type, res.dataStreamId);
+    return res.dataStreamId;
+  }
+  return null;
+}
+
+// Sync a finished workout as a Google Fit session (activity type 97 = strength training)
+async function syncWorkoutToGoogleFit(w) {
+  if (!gfAccessToken) return;
+
+  const startMs = new Date(w.startTime).getTime();
+  const durMs   = (w.durationSec || (w.duration || 0) * 60) * 1000;
+  const endMs   = startMs + durMs;
+
+  const session = {
+    id:               'gymlog_' + w.id,
+    name:             w.name,
+    description:      w.exercises.map(e => roName(e.name)).join(', '),
+    startTimeMillis:  String(startMs),
+    endTimeMillis:    String(endMs),
+    application:      { name: 'GymLog', version: '2.0', packageName: 'gymlog.webapp' },
+    activityType:     97  // strength_training
+  };
+
+  const ok = await gfFetch('sessions/gymlog_' + w.id, 'PUT', session);
+  if (ok !== null) {
+    showToast('💪 Antrenament trimis în Google Fit!');
+  }
+}
+
+// Sync steps and calories from a daily log entry
+async function syncDayToGoogleFit(dateKey, entry) {
+  if (!gfAccessToken) return;
+
+  const dayStart = new Date(dateKey + 'T00:00:00').getTime();
+  const dayEnd   = new Date(dateKey + 'T23:59:59').getTime();
+  const startNs  = String(dayStart * 1000000);
+  const endNs    = String(dayEnd   * 1000000);
+  const dsId     = dateKey.replace(/-/g, '') + '000000000-' + dateKey.replace(/-/g, '') + '235959000000000';
+
+  const tasks = [];
+
+  if (entry.steps && Number(entry.steps) > 0) {
+    tasks.push(
+      gfGetDataSource('steps').then(srcId => {
+        if (!srcId) return;
+        return gfFetch(
+          'dataSources/' + encodeURIComponent(srcId) + '/datasets/' + startNs + '-' + endNs,
+          'PATCH',
+          {
+            minStartTimeNs: startNs,
+            maxEndTimeNs:   endNs,
+            dataSourceId:   srcId,
+            point: [{
+              startTimeNanos: startNs,
+              endTimeNanos:   endNs,
+              dataTypeName:   'com.google.step_count.delta',
+              value: [{ intVal: Number(entry.steps) }]
+            }]
+          }
+        );
+      })
+    );
+  }
+
+  if (entry.calories && Number(entry.calories) > 0) {
+    tasks.push(
+      gfGetDataSource('calories').then(srcId => {
+        if (!srcId) return;
+        return gfFetch(
+          'dataSources/' + encodeURIComponent(srcId) + '/datasets/' + startNs + '-' + endNs,
+          'PATCH',
+          {
+            minStartTimeNs: startNs,
+            maxEndTimeNs:   endNs,
+            dataSourceId:   srcId,
+            point: [{
+              startTimeNanos: startNs,
+              endTimeNanos:   endNs,
+              dataTypeName:   'com.google.calories.expended',
+              value: [{ fpVal: Number(entry.calories) }]
+            }]
+          }
+        );
+      })
+    );
+  }
+
+  if (tasks.length > 0) {
+    await Promise.all(tasks);
+    showToast('📊 Pași/calorii trimise în Google Fit!');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════
+function fmtTime(s) {
+  return String(Math.floor(s / 60)).padStart(2,'0') + ':' + String(s % 60).padStart(2,'0');
+}
+
+function fmtDate(str) {
+  return new Date(str + 'T12:00:00').toLocaleDateString('ro-RO', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+}
+
+function fmtDur(mins) {
+  return mins < 60 ? mins + ' min' : Math.floor(mins/60) + 'h ' + (mins%60) + 'min';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.style.opacity = '0', 2600);
+}
+
+function updateNavDot(show) {
+  const existing = document.querySelector('#nav-workout .nav-dot');
+  if (show && !existing) {
+    document.getElementById('nav-workout').insertAdjacentHTML('afterbegin', '<span class="nav-dot"></span>');
+  } else if (!show && existing) {
+    existing.remove();
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+function tickHeaderClock() {
+  const n = new Date();
+  const el = document.getElementById('header-clock');
+  if (el) el.textContent =
+    String(n.getHours()).padStart(2,'0') + ':' +
+    String(n.getMinutes()).padStart(2,'0') + ':' +
+    String(n.getSeconds()).padStart(2,'0');
+}
+
+(function init() {
+  const now = new Date();
+  document.getElementById('header-date').textContent =
+    now.toLocaleDateString('ro-RO', { weekday:'long', day:'numeric', month:'long' });
+
+  tickHeaderClock();
+  setInterval(tickHeaderClock, 1000);
+
+  if (db.getActive()) updateNavDot(true);
+
+  // Restore Google Fit connection state from localStorage
+  if (localStorage.getItem('gf_connected') === '1') {
+    state.gfConnected = true;
+  }
+
+  renderHome();
+
+  // initGoogleFit() is also called by the GSI script's onload attribute
+  // (covers the case where GSI loads before or after init runs)
+  if (typeof google !== 'undefined' && google.accounts) initGoogleFit();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "My Gym App",
+  "short_name": "GymLog",
+  "description": "Personal fitness tracker — workouts, sleep, nutrition",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0f1a",
+  "theme_color": "#f97316",
+  "icons": [
+    {
+      "src": "Photos/Background app.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "fitness"],
+  "lang": "ro"
+}
