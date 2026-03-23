@@ -6,11 +6,16 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#f97316">
+  <meta name="theme-color" content="#00FF41">
   <title>My Gym App</title>
 
   <!-- PWA manifest -->
   <link rel="manifest" href="manifest.json">
+
+  <!-- Poppins — geometric modern sans-serif -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Service Worker registration -->
   <script>
@@ -25,81 +30,91 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     :root {
-      --bg: #000000;
-      --surface:  rgba(18,18,18,0.82);
-      --surface2: rgba(28,28,28,0.80);
-      --accent:   #ff375f;          /* Apple Fitness red-pink */
-      --accent2:  #ff9f0a;          /* warm orange — secondary accent */
-      --grad:     linear-gradient(135deg, #ff375f 0%, #ff9f0a 55%, #30d158 100%);
-      --blue:     #0a84ff;
-      --text:     #ffffff;
-      --text2:    #636366;          /* iOS secondary label gray */
-      --danger:   #ff453a;
-      --success:  #30d158;
-      --purple:   #bf5af2;
-      --yellow:   #ffd60a;
-      --cyan:     #32ade6;
-      --border:   rgba(255,255,255,0.08);
-      --radius:   18px;
+      --bg:           #0a0a0a;
+      --surface:      rgba(27,27,27,0.90);    /* #1B1B1B @ 90% opacity */
+      --surface2:     rgba(36,36,36,0.90);
+      --accent:       #00FF41;                /* Neon Green */
+      --accent-text:  #000000;                /* Black text on green buttons */
+      --blue:         #3b82f6;
+      --text:         #ffffff;
+      --text2:        #a0a0a0;
+      --danger:       #ff453a;
+      --success:      #00FF41;
+      --purple:       #bf5af2;
+      --yellow:       #ffd60a;
+      --cyan:         #32ade6;
+      --border:       rgba(255,255,255,0.09);
+      --radius:       20px;
     }
+
     html, body { background: transparent; }
     body {
       color: var(--text);
-      font-family: -apple-system, 'SF Pro Display', 'SF Pro Text',
-                   BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       -webkit-font-smoothing: antialiased;
       min-height: 100vh; max-width: 440px; margin: 0 auto;
       padding-bottom: 80px; overscroll-behavior: none;
     }
 
-    /* Fixed full-screen background — keeps user's background image */
+    /* ── BACKGROUND — user image preserved ── */
     #app-bg {
       position: fixed; inset: 0; z-index: -1;
-      background: #000000 url('Photos/Background app.png') center center / cover no-repeat;
+      background: #0a0a0a url('Photos/Background app.png') center center / cover no-repeat;
     }
 
     /* ── HEADER ── */
     .header {
-      background: rgba(0,0,0,0.10);
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: rgba(10,10,10,0.90);
+      backdrop-filter: blur(16px) saturate(160%);
+      -webkit-backdrop-filter: blur(16px) saturate(160%);
       padding: 14px 20px;
       display: flex; align-items: center; justify-content: space-between;
       position: sticky; top: 0; z-index: 100;
       border-bottom: 1px solid var(--border);
     }
     .header h1 {
-      font-size: 18px; font-weight: 800; letter-spacing: -0.3px;
-      background: var(--grad); -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent; background-clip: text;
+      font-size: 18px; font-weight: 800; letter-spacing: -0.2px;
+      color: var(--accent);
     }
     .header-right { text-align: right; }
-    .header-date { font-size: 10px; color: var(--text2); letter-spacing: 0.4px; text-transform: uppercase; }
+    .header-date {
+      font-size: 9px; color: var(--text2);
+      letter-spacing: 0.8px; text-transform: uppercase; font-weight: 500;
+    }
     #header-clock {
-      font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums;
-      color: var(--text); letter-spacing: -0.5px;
+      font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums;
+      color: var(--text); letter-spacing: -0.3px;
     }
 
     /* ── NAV ── */
     .bottom-nav {
       position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
       width: 100%; max-width: 440px;
-      background: rgba(0,0,0,0.75);
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: rgba(10,10,10,0.90);
+      backdrop-filter: blur(16px) saturate(160%);
+      -webkit-backdrop-filter: blur(16px) saturate(160%);
       display: flex; border-top: 1px solid var(--border); z-index: 100;
     }
     .nav-btn {
       flex: 1; padding: 10px 4px; background: none; border: none;
-      color: var(--text2); font-size: 10px; font-weight: 500; letter-spacing: 0.2px;
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      color: var(--text2); font-size: 10px; font-weight: 500;
+      font-family: 'Poppins', sans-serif; letter-spacing: 0.2px;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
       cursor: pointer; transition: color 0.2s; position: relative;
     }
     .nav-btn.active { color: var(--accent); }
+    /* Active indicator — neon green underline */
+    .nav-btn.active::after {
+      content: '';
+      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+      width: 20px; height: 2px;
+      background: var(--accent); border-radius: 2px;
+    }
     .nav-btn svg { width: 22px; height: 22px; }
     .nav-dot {
       position: absolute; top: 8px; right: calc(50% - 16px);
       width: 7px; height: 7px; background: var(--accent); border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent);
     }
 
     /* ── PAGES ── */
@@ -111,94 +126,111 @@
       background: var(--surface);
       border-radius: var(--radius);
       border: 1px solid var(--border);
-      padding: 16px;
+      padding: 18px;
       margin-bottom: 12px;
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
     }
     .card-title {
       font-size: 10px; color: var(--text2); text-transform: uppercase;
-      letter-spacing: 1px; margin-bottom: 12px; font-weight: 600;
+      letter-spacing: 1.2px; margin-bottom: 14px; font-weight: 600;
       display: flex; align-items: center; gap: 7px;
     }
     .card-title-icon { font-size: 16px; line-height: 1; }
-    .card-accent { border: 1px solid rgba(255,55,95,0.45); }
+    .card-accent { border: 1px solid rgba(0,255,65,0.35); }
 
-    /* ── BUTTONS ── */
+    /* ── BUTTONS — pill-shaped ── */
     .btn {
-      padding: 15px 20px; border-radius: 14px; border: none;
-      font-size: 16px; font-weight: 700; cursor: pointer; width: 100%;
-      transition: opacity 0.15s, transform 0.1s;
-      letter-spacing: -0.2px;
+      padding: 15px 24px;
+      border-radius: 9999px;          /* full pill */
+      border: none;
+      font-size: 15px; font-weight: 600;
+      font-family: 'Poppins', sans-serif;
+      cursor: pointer; width: 100%;
+      transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+      letter-spacing: 0.1px;
     }
-    .btn:active { transform: scale(0.97); opacity: 0.85; }
+    .btn:active { transform: scale(0.97); opacity: 0.9; }
+
+    /* Primary — neon green, black text */
     .btn-primary {
-      background: var(--grad); color: white;
-      box-shadow: 0 4px 20px rgba(255,55,95,0.35);
+      background: var(--accent);
+      color: var(--accent-text);
+      box-shadow: 0 4px 22px rgba(0,255,65,0.30);
     }
+    .btn-primary:active { box-shadow: 0 2px 10px rgba(0,255,65,0.20); }
+
+    /* Secondary — dark surface */
     .btn-secondary {
-      background: var(--surface2); color: var(--text);
+      background: var(--surface2);
+      color: var(--text);
       border: 1px solid var(--border);
     }
-    .btn-danger  { background: var(--danger);  color: white; }
-    .btn-success { background: var(--success); color: white; }
-    .btn-blue    { background: var(--blue);    color: white; }
-    .btn-sm { padding: 9px 16px; font-size: 13px; border-radius: 10px; width: auto; }
+    .btn-danger  { background: var(--danger);  color: #fff; }
+    .btn-success { background: var(--accent);  color: var(--accent-text); }
+    .btn-blue    { background: var(--blue);    color: #fff; }
+    .btn-sm { padding: 8px 18px; font-size: 13px; border-radius: 9999px; width: auto; }
 
     /* ── INPUTS ── */
     .input {
-      background: rgba(28,28,28,0.90);
+      background: rgba(27,27,27,0.90);
       border: 1px solid var(--border);
-      border-radius: 12px; color: var(--text);
-      font-size: 16px; padding: 13px 14px; width: 100%;
+      border-radius: 14px;
+      color: var(--text);
+      font-size: 15px; padding: 13px 14px; width: 100%;
       -webkit-appearance: none;
-      font-family: inherit;
+      font-family: 'Poppins', sans-serif;
+      font-weight: 400;
     }
-    .input:focus { outline: none; border-color: rgba(255,55,95,0.6); }
+    .input::placeholder { color: #555; }
+    .input:focus { outline: none; border-color: rgba(0,255,65,0.5); }
     select.input {
       appearance: none; -webkit-appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23636366' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0a0a0' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
       background-repeat: no-repeat; background-position: right 14px center; padding-right: 38px;
     }
-    textarea.input { resize: none; min-height: 76px; line-height: 1.5; padding: 12px 14px; }
+    textarea.input { resize: none; min-height: 76px; line-height: 1.6; padding: 13px 14px; }
 
     /* ── TIMER ── */
     .timer-display {
-      font-size: 88px; font-weight: 800; text-align: center;
-      font-variant-numeric: tabular-nums; letter-spacing: -5px;
+      font-size: 86px; font-weight: 800; text-align: center;
+      font-variant-numeric: tabular-nums; letter-spacing: -4px;
       color: var(--text); padding: 6px 0 2px; line-height: 1;
     }
     .timer-display.warning { color: var(--danger); }
-    .timer-display.done    {
-      background: var(--grad); -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent; background-clip: text;
-    }
+    .timer-display.done    { color: var(--accent); }
     @keyframes alarmPulse {
       from { opacity: 1; transform: scale(1); }
-      to   { opacity: 0.7; transform: scale(0.96); }
+      to   { opacity: 0.65; transform: scale(0.96); }
     }
     .timer-progress {
-      height: 4px; background: rgba(255,255,255,0.08);
-      border-radius: 2px; overflow: hidden; margin: 10px 0 16px;
+      height: 5px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 3px; overflow: hidden; margin: 10px 0 16px;
     }
     .timer-progress-bar {
       height: 100%;
-      background: var(--grad);
-      border-radius: 2px;
+      background: var(--accent);
+      border-radius: 3px;
       transition: width 0.9s linear;
+      box-shadow: 0 0 8px rgba(0,255,65,0.6);
     }
     .preset-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 14px; }
     .preset-btn {
-      padding: 7px 15px;
-      background: rgba(255,255,255,0.06);
+      padding: 7px 16px;
+      background: rgba(255,255,255,0.05);
       border: 1px solid var(--border);
-      border-radius: 20px; color: var(--text2);
+      border-radius: 9999px;
+      color: var(--text2);
       font-size: 13px; font-weight: 600;
+      font-family: 'Poppins', sans-serif;
       cursor: pointer; transition: all 0.15s;
     }
     .preset-btn.active {
-      background: var(--accent); border-color: var(--accent);
-      color: white; box-shadow: 0 2px 10px rgba(255,55,95,0.4);
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-text);
+      box-shadow: 0 0 10px rgba(0,255,65,0.35);
     }
 
     /* ── SETS ── */
@@ -206,89 +238,98 @@
     .set-row:last-child { border-bottom: none; }
     .set-num {
       width: 30px; height: 30px;
-      background: var(--grad);
+      background: var(--accent);
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 800; flex-shrink: 0;
-      color: white;
+      font-size: 13px; font-weight: 700; flex-shrink: 0;
+      color: var(--accent-text);
+      box-shadow: 0 0 8px rgba(0,255,65,0.4);
     }
     .delete-btn { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 22px; padding: 0 4px; line-height: 1; }
 
     /* ── BADGES ── */
-    .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
-    .badge-orange { background: rgba(255,159,10,0.15); color: var(--accent2); }
-    .badge-blue   { background: rgba(10,132,255,0.15); color: var(--blue); }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+    .badge-orange { background: rgba(0,255,65,0.12); color: var(--accent); }
+    .badge-blue   { background: rgba(59,130,246,0.15); color: var(--blue); }
 
     /* ── HISTORY / WORKOUT CARDS ── */
     .history-item {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 14px 16px; margin-bottom: 10px;
+      padding: 16px; margin-bottom: 10px;
       cursor: pointer; transition: background 0.15s;
       backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     }
     .history-item:active { background: var(--surface2); }
-    .history-date { font-size: 11px; color: var(--text2); margin-bottom: 3px; letter-spacing: 0.3px; text-transform: uppercase; }
-    .history-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+    .history-date {
+      font-size: 10px; color: var(--text2); margin-bottom: 4px;
+      letter-spacing: 0.6px; text-transform: uppercase; font-weight: 500;
+    }
+    .history-title { font-size: 17px; font-weight: 700; }
     .history-stats { display: flex; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
 
     /* ── SLEEP DISPLAY ── */
     .sleep-total {
-      background: rgba(255,255,255,0.05);
+      background: rgba(255,255,255,0.04);
       border: 1px solid var(--border);
-      border-radius: 14px; padding: 16px; text-align: center; margin: 12px 0;
+      border-radius: 16px; padding: 16px; text-align: center; margin: 12px 0;
     }
     .sleep-total-val {
-      font-size: 38px; font-weight: 800; color: var(--blue);
+      font-size: 36px; font-weight: 800; color: var(--blue);
       font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -1px;
     }
-    .sleep-total-label { font-size: 10px; color: var(--text2); margin-top: 5px; text-transform: uppercase; letter-spacing: 0.8px; }
+    .sleep-total-label {
+      font-size: 9px; color: var(--text2); margin-top: 5px;
+      text-transform: uppercase; letter-spacing: 1px; font-weight: 500;
+    }
 
     /* ── SLEEP PHASES ── */
     .phase-row { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
     .phase-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-    .phase-name { font-size: 13px; font-weight: 600; flex: 1; }
+    .phase-name { font-size: 13px; font-weight: 500; flex: 1; }
     .phase-inp { width: 88px; flex-shrink: 0; text-align: center; padding: 9px 8px !important; font-size: 15px !important; }
     .phase-unit { font-size: 12px; color: var(--text2); flex-shrink: 0; }
 
     /* ── SUPPLEMENTS ── */
     .supp-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
     .supp-btn {
-      padding: 8px 14px;
-      border-radius: 20px;
+      padding: 8px 15px;
+      border-radius: 9999px;
       border: 1px solid var(--border);
-      background: rgba(255,255,255,0.05);
+      background: rgba(255,255,255,0.04);
       color: var(--text2);
-      font-size: 13px; font-weight: 600; cursor: pointer;
+      font-size: 13px; font-weight: 500; cursor: pointer;
       display: flex; align-items: center; gap: 5px;
       transition: all 0.18s;
-      font-family: inherit;
+      font-family: 'Poppins', sans-serif;
     }
     .supp-btn.taken {
-      background: rgba(48,209,88,0.12);
-      border-color: rgba(48,209,88,0.4);
-      color: var(--success);
+      background: rgba(0,255,65,0.10);
+      border-color: rgba(0,255,65,0.40);
+      color: var(--accent);
     }
     .supp-btn .sc { font-size: 14px; }
 
     /* ── STAT TILES ── */
     .stat-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
     .stat-tile {
-      background: rgba(255,255,255,0.05);
+      background: rgba(27,27,27,0.90);
       border: 1px solid var(--border);
-      border-radius: 14px; padding: 16px; text-align: center;
+      border-radius: 16px; padding: 16px; text-align: center;
     }
     .stat-tile-val {
-      font-size: 30px; font-weight: 800; line-height: 1;
-      margin-bottom: 4px; font-variant-numeric: tabular-nums;
-      letter-spacing: -1px;
+      font-size: 28px; font-weight: 800; line-height: 1;
+      margin-bottom: 5px; font-variant-numeric: tabular-nums; letter-spacing: -0.5px;
     }
-    .stat-tile-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+    .stat-tile-label {
+      font-size: 9px; color: var(--text2);
+      text-transform: uppercase; letter-spacing: 0.9px; font-weight: 600;
+    }
 
     /* ── CHART LEGEND ── */
     .chart-legend { display: flex; gap: 16px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
-    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); letter-spacing: 0.2px; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
     .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
 
     /* ── DAILY LOG ITEMS ── */
@@ -299,38 +340,49 @@
       padding: 14px 16px; margin-bottom: 10px;
       backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     }
-    .log-date { font-size: 11px; color: var(--text2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .log-date {
+      font-size: 10px; color: var(--text2); margin-bottom: 5px;
+      text-transform: uppercase; letter-spacing: 0.6px; font-weight: 500;
+    }
     .log-stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 
     /* ── EMPTY STATE ── */
     .empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
-    .empty-state .icon { font-size: 56px; margin-bottom: 14px; }
-    .empty-state h3 { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 7px; letter-spacing: -0.3px; }
-    .empty-state p { font-size: 14px; line-height: 1.5; }
+    .empty-state .icon { font-size: 54px; margin-bottom: 14px; }
+    .empty-state h3 { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 7px; }
+    .empty-state p { font-size: 14px; line-height: 1.6; font-weight: 400; }
 
     /* ── MODAL ── */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.80); z-index: 200; display: flex; align-items: flex-end; justify-content: center; }
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.82);
+      z-index: 200; display: flex; align-items: flex-end; justify-content: center;
+    }
     .modal {
-      background: rgba(18,18,18,0.97);
+      background: rgba(20,20,20,0.97);
       border: 1px solid var(--border);
-      border-radius: 24px 24px 0 0;
+      border-top: 1px solid rgba(0,255,65,0.18);
+      border-radius: 28px 28px 0 0;
       padding: 24px 20px;
-      width: 100%; max-width: 440px; max-height: 85vh; overflow-y: auto;
+      width: 100%; max-width: 440px; max-height: 88vh; overflow-y: auto;
       backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     }
-    .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 4px; letter-spacing: -0.4px; }
+    .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
     .modal-close { background: none; border: none; color: var(--text2); font-size: 26px; cursor: pointer; padding: 0 4px; }
 
     /* ── TOAST ── */
     .toast {
-      position: fixed; top: 64px; left: 50%; transform: translateX(-50%);
-      background: rgba(28,28,30,0.95);
-      border: 1px solid var(--border);
-      color: white; padding: 10px 20px;
-      border-radius: 20px; font-size: 14px; font-weight: 600;
+      position: fixed; top: 66px; left: 50%; transform: translateX(-50%);
+      background: rgba(20,20,20,0.95);
+      border: 1px solid rgba(0,255,65,0.30);
+      color: var(--accent);
+      padding: 10px 22px;
+      border-radius: 9999px;
+      font-size: 13px; font-weight: 600; font-family: 'Poppins', sans-serif;
       z-index: 300; opacity: 0; transition: opacity 0.3s;
       white-space: nowrap; pointer-events: none;
       backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 0 16px rgba(0,255,65,0.15);
     }
 
     /* ── UTIL ── */
@@ -344,13 +396,13 @@
     .mb-8  { margin-bottom: 8px; }
     .mb-12 { margin-bottom: 12px; }
     .label {
-      font-size: 10px; color: var(--text2); text-transform: uppercase;
-      letter-spacing: 0.9px; font-weight: 600; display: block; margin-bottom: 7px;
+      font-size: 9px; color: var(--text2); text-transform: uppercase;
+      letter-spacing: 1px; font-weight: 600; display: block; margin-bottom: 7px;
     }
-    h2 { font-size: 24px; font-weight: 800; margin-bottom: 16px; letter-spacing: -0.6px; }
+    h2 { font-size: 22px; font-weight: 800; margin-bottom: 16px; }
     .section-title {
-      font-size: 10px; color: var(--text2); text-transform: uppercase;
-      letter-spacing: 1px; font-weight: 600; margin-bottom: 10px;
+      font-size: 9px; color: var(--text2); text-transform: uppercase;
+      letter-spacing: 1.2px; font-weight: 600; margin-bottom: 10px;
     }
 
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
@@ -526,9 +578,9 @@ function exInfo(name) {
 
 function diffBadge(level) {
   const map = {
-    1: { label: "Începător",    color: "#22c55e", bg: "rgba(34,197,94,0.15)"  },
-    2: { label: "Intermediar",  color: "#f97316", bg: "rgba(249,115,22,0.15)" },
-    3: { label: "Avansat",      color: "#ef4444", bg: "rgba(239,68,68,0.15)"  }
+    1: { label: "Începător",    color: "#00FF41", bg: "rgba(0,255,65,0.12)"   },
+    2: { label: "Intermediar",  color: "#ffd60a", bg: "rgba(255,214,10,0.12)" },
+    3: { label: "Avansat",      color: "#ff453a", bg: "rgba(255,69,58,0.12)"  }
   };
   const d = map[level] || map[1];
   return `<span style="display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;background:${d.bg};color:${d.color}">${d.label}</span>`;
@@ -741,7 +793,7 @@ function renderWorkout() {
   const isWarn = t.remaining <= 10 && t.remaining > 0 && t.running;
   const isDone = t.remaining === 0;
   const timerClass = isWarn ? 'warning' : isDone ? 'done' : '';
-  const timerColor = isWarn ? '#ef4444' : isDone ? '#22c55e' : 'var(--accent)';
+  const timerColor = isWarn ? '#ff453a' : isDone ? '#00FF41' : 'var(--accent)';
   const currentEx = workout.exercises[workout.exIndex] || null;
   const prevExercises = workout.exercises.filter((_, i) => i < workout.exIndex);
 
@@ -874,6 +926,21 @@ function renderWorkout() {
 // RENDER: ZI (Daily Log)
 // ══════════════════════════════════════════════════════
 function renderZi() {
+  // ── Day-change guard: if the date has rolled over, reinitialise for today ──
+  const todayK = todayKey();
+  if (ddEntry.date !== todayK) {
+    const all = ddLoadAll();
+    const saved = all[todayK];
+    if (saved) {
+      allSupps().forEach(s => { if (saved.supplements[s] === undefined) saved.supplements[s] = false; });
+      if (!saved.rowing)    saved.rowing    = { distance:'', duration:'', avgSpeed:'', calories:'' };
+      if (!saved.treadmill) saved.treadmill = { distance:'', duration:'', avgSpeed:'', calories:'' };
+      ddEntry = saved;
+    } else {
+      ddEntry = emptyEntry(todayK);
+    }
+  }
+
   const e = ddEntry;
   const sleepMins = calcSleepMins(e.sleep.bedtime, e.sleep.wakeup);
   const supps = allSupps();
@@ -978,7 +1045,7 @@ function renderZi() {
   <div class="card">
     <div class="card-title">
       <span class="card-title-icon">💪</span>Rezumat antrenament
-      ${wSynced ? '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--success);margin-left:auto">sincronizat automat</span>' : ''}
+      ${wSynced ? '<span style="font-size:10px;padding:2px 8px;border-radius:9999px;background:rgba(0,255,65,.12);color:var(--accent);margin-left:auto">sincronizat automat</span>' : ''}
     </div>
     <div style="margin-bottom:10px">
       <label class="label">Note</label>
@@ -1104,9 +1171,9 @@ function renderHistory() {
     <div class="card-title"><span class="card-title-icon">🌙</span>Durată somn — 30 zile</div>
     <canvas id="chart-sleep" style="width:100%;height:170px;display:block"></canvas>
     <div class="chart-legend">
-      <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>≥7h (bun)</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>6–7h</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>&lt;6h</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#00FF41"></div>≥7h (bun)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ffd60a"></div>6–7h</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ff453a"></div>&lt;6h</div>
       <div class="legend-item" style="margin-left:6px">
         <div style="width:22px;height:2px;background:rgba(34,197,94,.5);border-radius:1px"></div>8h optim
       </div>
@@ -1180,7 +1247,7 @@ function renderHistory() {
     <div class="card-title"><span class="card-title-icon">🏃</span>Evoluție bandă alergare — 30 zile</div>
     <canvas id="chart-treadmill" style="width:100%;height:160px;display:block"></canvas>
     <div class="chart-legend">
-      <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Distanță (m ÷10)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#00FF41"></div>Distanță (m ÷10)</div>
       <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Calorii (kcal)</div>
     </div>
   </div>`;
@@ -1198,11 +1265,11 @@ function renderHistory() {
         <div class="log-date">${d.toLocaleDateString('ro-RO', { weekday:'long', day:'numeric', month:'long' })}</div>
         <div class="log-stats">
           ${sm ? `<span class="badge" style="background:rgba(59,130,246,.15);color:var(--blue)">🌙 ${fmtSleep(sm)}</span>` : ''}
-          ${ent.calories ? `<span class="badge" style="background:rgba(249,115,22,.15);color:var(--accent)">🍽️ ${Number(ent.calories).toLocaleString()} kcal</span>` : ''}
-          ${ent.steps ? `<span class="badge" style="background:rgba(34,197,94,.15);color:var(--success)">👟 ${Number(ent.steps).toLocaleString()} pași</span>` : ''}
-          ${ent.workout.duration ? `<span class="badge" style="background:rgba(168,85,247,.15);color:var(--purple)">💪 ${ent.workout.duration} min</span>` : ''}
-          ${ent.rowing?.distance ? `<span class="badge" style="background:rgba(6,182,212,.15);color:#06b6d4">🚣 ${Number(ent.rowing.distance).toLocaleString()} m</span>` : ''}
-          ${ent.treadmill?.distance ? `<span class="badge" style="background:rgba(34,197,94,.15);color:var(--success)">🏃 ${Number(ent.treadmill.distance)} km</span>` : ''}
+          ${ent.calories ? `<span class="badge" style="background:rgba(0,255,65,.10);color:var(--accent)">🍽️ ${Number(ent.calories).toLocaleString()} kcal</span>` : ''}
+          ${ent.steps ? `<span class="badge" style="background:rgba(0,255,65,.10);color:var(--accent)">👟 ${Number(ent.steps).toLocaleString()} pași</span>` : ''}
+          ${ent.workout.duration ? `<span class="badge" style="background:rgba(191,90,242,.12);color:var(--purple)">💪 ${ent.workout.duration} min</span>` : ''}
+          ${ent.rowing?.distance ? `<span class="badge" style="background:rgba(50,173,230,.12);color:var(--cyan)">🚣 ${Number(ent.rowing.distance).toLocaleString()} m</span>` : ''}
+          ${ent.treadmill?.distance ? `<span class="badge" style="background:rgba(0,255,65,.10);color:var(--accent)">🏃 ${Number(ent.treadmill.distance)} km</span>` : ''}
           ${taken.length ? `<span class="badge" style="background:rgba(255,255,255,.06);color:var(--text2)">💊 ${taken.length} suppl.</span>` : ''}
         </div>
       </div>`;
@@ -1233,7 +1300,7 @@ function renderHistory() {
     drawSleepChart(sleepDays);
     drawWorkoutEvolutionChart(wDays);
     drawCardioChart('chart-rowing',    rowingDays,    '#06b6d4', '#f59e0b');
-    drawCardioChart('chart-treadmill', treadmillDays, '#22c55e', '#f59e0b');
+    drawCardioChart('chart-treadmill', treadmillDays, '#00FF41', '#ffd60a');
   });
 }
 
@@ -1253,7 +1320,7 @@ function historyCard(w, sets) {
       <div class="history-stats">
         <span class="badge badge-orange">${w.exercises.length} exerciți${w.exercises.length !== 1 ? 'i' : 'u'}</span>
         <span class="badge badge-blue">${sets} seturi</span>
-        ${w.totalWeight ? `<span class="badge" style="background:rgba(34,197,94,.15);color:var(--success)">${w.totalWeight.toLocaleString()} kg</span>` : ''}
+        ${w.totalWeight ? `<span class="badge" style="background:rgba(0,255,65,.10);color:var(--accent)">${w.totalWeight.toLocaleString()} kg</span>` : ''}
       </div>
     </div>`;
 }
@@ -1509,7 +1576,7 @@ function updateTimerUI() {
   if (b) {
     const pct = t.duration > 0 ? Math.round(((t.duration - t.remaining) / t.duration) * 100) : 100;
     b.style.width = pct + '%';
-    b.style.background = isWarn ? '#ef4444' : isDone ? '#22c55e' : 'var(--accent)';
+    b.style.background = isWarn ? '#ff453a' : isDone ? '#00FF41' : 'var(--accent)';
   }
   const ab = document.getElementById('stop-alarm-btn');
   if (ab) {
@@ -1651,6 +1718,8 @@ function calcTreadmillSpeed() {
 function saveToday() {
   const notes = document.getElementById('inp-wnotes');
   if (notes) ddEntry.workout.notes = notes.value;
+  // Always save against TODAY's key — guard against stale date if app ran overnight
+  ddEntry.date = todayKey();
   const all = ddLoadAll();
   all[ddEntry.date] = ddEntry;
   ddSaveAll(all);
@@ -1688,7 +1757,7 @@ function drawSleepChart(days) {
 
   const optY = pad.top + ch - 8 * yS;
   ctx.save();
-  ctx.strokeStyle = 'rgba(34,197,94,0.45)'; ctx.lineWidth = 1.2;
+  ctx.strokeStyle = 'rgba(0,255,65,0.45)'; ctx.lineWidth = 1.2;
   ctx.setLineDash([5, 4]);
   ctx.beginPath(); ctx.moveTo(pad.left, optY); ctx.lineTo(pad.left + cw, optY); ctx.stroke();
   ctx.restore();
@@ -1700,7 +1769,7 @@ function drawSleepChart(days) {
       const hours = d.mins / 60;
       const bh = Math.min(hours * yS, ch);
       const by = pad.top + ch - bh;
-      const color = hours >= 7 ? '#3b82f6' : hours >= 6 ? '#f59e0b' : '#ef4444';
+      const color = hours >= 7 ? '#00FF41' : hours >= 6 ? '#ffd60a' : '#ff453a';
       ctx.fillStyle = color;
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(cx, by, bw, bh, [3,3,0,0]);
@@ -1749,7 +1818,7 @@ function drawWorkoutEvolutionChart(days) {
     const durH = (d.duration / scale) * ch;
     const wtH  = ((d.weight / 10) / scale) * ch;
 
-    ctx.fillStyle = 'rgba(249,115,22,0.85)';
+    ctx.fillStyle = 'rgba(0,255,65,0.85)';
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x, pad.top + ch - durH, bw, durH, [3,3,0,0]);
     else ctx.rect(x, pad.top + ch - durH, bw, durH);
@@ -1854,7 +1923,7 @@ function showDetail(id) {
     <div style="display:flex;gap:10px;margin:12px 0">
       <span class="badge badge-orange">${w.exercises.length} exerciții</span>
       <span class="badge badge-blue">${sets} seturi</span>
-      <span class="badge" style="background:rgba(34,197,94,.15);color:var(--success)">${totalReps} rep.</span>
+      <span class="badge" style="background:rgba(0,255,65,.10);color:var(--accent)">${totalReps} rep.</span>
     </div>
     <div class="divider"></div>`;
 
