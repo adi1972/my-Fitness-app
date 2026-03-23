@@ -22,10 +22,6 @@
     }
   </script>
 
-  <!-- Google Identity Services — loaded async; calls initGoogleFit() when ready -->
-  <script src="https://accounts.google.com/gsi/client" async defer
-          onload="if(typeof initGoogleFit==='function') initGoogleFit()"></script>
-
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     :root {
@@ -450,8 +446,7 @@ const DEFAULT_SUPPS = [
 const state = {
   page: 'home',
   timer: { duration: 90, remaining: 90, running: false, interval: null, alarmRinging: false },
-  sessionInterval: null,
-  gfConnected: false
+  sessionInterval: null
 };
 
 function fmtElapsed(totalSec) {
@@ -587,27 +582,6 @@ function renderHome() {
       </div>`;
   }
 
-  // ── Google Fit status card ──
-  const gfBg    = state.gfConnected ? 'rgba(34,197,94,.10)' : 'rgba(249,115,22,.08)';
-  const gfBdr   = state.gfConnected ? 'rgba(34,197,94,.35)' : 'rgba(249,115,22,.35)';
-  const gfIcon  = state.gfConnected ? '🟢' : '⚪';
-  const gfLabel = state.gfConnected ? 'Google Fit conectat' : 'Google Fit neconectat';
-  const gfBtn   = state.gfConnected
-    ? `<button class="btn btn-secondary btn-sm" onclick="disconnectGoogleFit()" style="font-size:12px;padding:7px 14px">Deconectează</button>`
-    : `<button class="btn btn-primary btn-sm" onclick="connectGoogleFit()" style="background:var(--success);font-size:13px;padding:8px 16px">Conectează Google Fit</button>`;
-
-  html += `
-    <div style="border-radius:var(--radius);background:${gfBg};border:1.5px solid ${gfBdr};
-                padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
-      <span style="font-size:22px;line-height:1">🏃</span>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:700">${gfIcon} ${gfLabel}</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:2px">
-          ${state.gfConnected ? 'Antrenamentele și pașii se sincronizează automat' : 'Conectează pentru a trimite datele în Google Fit → Samsung Health'}
-        </div>
-      </div>
-      ${gfBtn}
-    </div>`;
 
   document.getElementById('home-content').innerHTML = html;
 }
@@ -1283,8 +1257,6 @@ function finishWorkout() {
     }
 
     showSummary(w);
-    // Sync to Google Fit (async — does not block UI)
-    syncWorkoutToGoogleFit(w);
   } catch(err) {
     showToast('Eroare la finalizare. Încearcă din nou.');
   }
@@ -1554,8 +1526,6 @@ function saveToday() {
   all[ddEntry.date] = ddEntry;
   ddSaveAll(all);
   showToast('Salvat cu succes ✓');
-  // Sync steps / calories to Google Fit (async)
-  syncDayToGoogleFit(ddEntry.date, ddEntry);
   renderZi();
 }
 
@@ -1807,214 +1777,6 @@ function handleOverlayClick(e) {
 }
 
 // ══════════════════════════════════════════════════════
-// GOOGLE FIT INTEGRATION
-// ══════════════════════════════════════════════════════
-
-// ⚠️  Replace the string below with your real OAuth Client ID from
-//     https://console.cloud.google.com  → Credentials → OAuth 2.0 Client ID
-const GF_CLIENT_ID = '232036468636-oq0l7srlcmk2n6v0i1hsfg1nrs0es2a7.apps.googleusercontent.com';
-
-const GF_SCOPES = [
-  'https://www.googleapis.com/auth/fitness.activity.write',
-  'https://www.googleapis.com/auth/fitness.activity.read',
-  'https://www.googleapis.com/auth/fitness.body.write'
-].join(' ');
-
-let gfTokenClient  = null;
-let gfAccessToken  = null;
-let gfDataSrcCache = {};           // { type → dataStreamId }
-
-function initGoogleFit() {
-  if (typeof google === 'undefined' || !google.accounts) return;
-  if (gfTokenClient) return;       // already set up
-
-  gfTokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: GF_CLIENT_ID,
-    scope: GF_SCOPES,
-    callback: async resp => {
-      if (resp.access_token) {
-        gfAccessToken = resp.access_token;
-        state.gfConnected = true;
-        localStorage.setItem('gf_connected', '1');
-        showToast('✅ Google Fit conectat!');
-        renderHome();
-      }
-    }
-  });
-
-  // Restore flag (token itself is NOT persisted — user must re-auth per session)
-  if (localStorage.getItem('gf_connected') === '1') {
-    state.gfConnected = true;
-  }
-}
-
-function connectGoogleFit() {
-  if (GF_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID') {
-    alert('Setează CLIENT_ID-ul tău Google în codul aplicației înainte de a conecta Google Fit.\n\nMergi la console.cloud.google.com → Credentials → OAuth 2.0 Client IDs');
-    return;
-  }
-  if (!gfTokenClient) {
-    showToast('Google Fit SDK nu este încă pregătit. Încearcă din nou în câteva secunde.');
-    return;
-  }
-  gfTokenClient.requestAccessToken();
-}
-
-function disconnectGoogleFit() {
-  gfAccessToken = null;
-  state.gfConnected = false;
-  gfDataSrcCache = {};
-  localStorage.removeItem('gf_connected');
-  localStorage.removeItem('gf_ds_steps');
-  localStorage.removeItem('gf_ds_calories');
-  showToast('Google Fit deconectat');
-  renderHome();
-}
-
-// Low-level helper — makes an authenticated request to the Fitness API
-async function gfFetch(path, method = 'GET', body = null) {
-  if (!gfAccessToken) return null;
-  try {
-    const res = await fetch('https://www.googleapis.com/fitness/v1/users/me/' + path, {
-      method,
-      headers: {
-        'Authorization': 'Bearer ' + gfAccessToken,
-        'Content-Type':  'application/json'
-      },
-      body: body ? JSON.stringify(body) : undefined
-    });
-    if (res.status === 401) {
-      // Token expired — prompt silent refresh
-      gfAccessToken = null;
-      if (gfTokenClient) gfTokenClient.requestAccessToken({ prompt: '' });
-      return null;
-    }
-    if (!res.ok) return null;
-    const text = await res.text();
-    return text ? JSON.parse(text) : {};
-  } catch (e) { return null; }
-}
-
-// Get or create a custom data source; returns the full dataStreamId
-async function gfGetDataSource(type) {
-  if (gfDataSrcCache[type]) return gfDataSrcCache[type];
-  const stored = localStorage.getItem('gf_ds_' + type);
-  if (stored) { gfDataSrcCache[type] = stored; return stored; }
-
-  const isSteps = type === 'steps';
-  const body = {
-    dataStreamName: isSteps ? 'GymLog Steps' : 'GymLog Calories',
-    type: 'raw',
-    application: { name: 'GymLog', version: '2.0', packageName: 'gymlog.webapp' },
-    dataType: {
-      name: isSteps ? 'com.google.step_count.delta' : 'com.google.calories.expended',
-      field: [{ name: isSteps ? 'steps' : 'calories',
-                format: isSteps ? 'integer' : 'floatPoint' }]
-    },
-    device: {
-      uid: 'gymlog_web_v2', type: 'phone',
-      version: '2.0', model: 'GymLog Web', manufacturer: 'GymLog'
-    }
-  };
-
-  const res = await gfFetch('dataSources', 'POST', body);
-  if (res && res.dataStreamId) {
-    gfDataSrcCache[type] = res.dataStreamId;
-    localStorage.setItem('gf_ds_' + type, res.dataStreamId);
-    return res.dataStreamId;
-  }
-  return null;
-}
-
-// Sync a finished workout as a Google Fit session (activity type 97 = strength training)
-async function syncWorkoutToGoogleFit(w) {
-  if (!gfAccessToken) return;
-
-  const startMs = new Date(w.startTime).getTime();
-  const durMs   = (w.durationSec || (w.duration || 0) * 60) * 1000;
-  const endMs   = startMs + durMs;
-
-  const session = {
-    id:               'gymlog_' + w.id,
-    name:             w.name,
-    description:      w.exercises.map(e => roName(e.name)).join(', '),
-    startTimeMillis:  String(startMs),
-    endTimeMillis:    String(endMs),
-    application:      { name: 'GymLog', version: '2.0', packageName: 'gymlog.webapp' },
-    activityType:     97  // strength_training
-  };
-
-  const ok = await gfFetch('sessions/gymlog_' + w.id, 'PUT', session);
-  if (ok !== null) {
-    showToast('💪 Antrenament trimis în Google Fit!');
-  }
-}
-
-// Sync steps and calories from a daily log entry
-async function syncDayToGoogleFit(dateKey, entry) {
-  if (!gfAccessToken) return;
-
-  const dayStart = new Date(dateKey + 'T00:00:00').getTime();
-  const dayEnd   = new Date(dateKey + 'T23:59:59').getTime();
-  const startNs  = String(dayStart * 1000000);
-  const endNs    = String(dayEnd   * 1000000);
-  const dsId     = dateKey.replace(/-/g, '') + '000000000-' + dateKey.replace(/-/g, '') + '235959000000000';
-
-  const tasks = [];
-
-  if (entry.steps && Number(entry.steps) > 0) {
-    tasks.push(
-      gfGetDataSource('steps').then(srcId => {
-        if (!srcId) return;
-        return gfFetch(
-          'dataSources/' + encodeURIComponent(srcId) + '/datasets/' + startNs + '-' + endNs,
-          'PATCH',
-          {
-            minStartTimeNs: startNs,
-            maxEndTimeNs:   endNs,
-            dataSourceId:   srcId,
-            point: [{
-              startTimeNanos: startNs,
-              endTimeNanos:   endNs,
-              dataTypeName:   'com.google.step_count.delta',
-              value: [{ intVal: Number(entry.steps) }]
-            }]
-          }
-        );
-      })
-    );
-  }
-
-  if (entry.calories && Number(entry.calories) > 0) {
-    tasks.push(
-      gfGetDataSource('calories').then(srcId => {
-        if (!srcId) return;
-        return gfFetch(
-          'dataSources/' + encodeURIComponent(srcId) + '/datasets/' + startNs + '-' + endNs,
-          'PATCH',
-          {
-            minStartTimeNs: startNs,
-            maxEndTimeNs:   endNs,
-            dataSourceId:   srcId,
-            point: [{
-              startTimeNanos: startNs,
-              endTimeNanos:   endNs,
-              dataTypeName:   'com.google.calories.expended',
-              value: [{ fpVal: Number(entry.calories) }]
-            }]
-          }
-        );
-      })
-    );
-  }
-
-  if (tasks.length > 0) {
-    await Promise.all(tasks);
-    showToast('📊 Pași/calorii trimise în Google Fit!');
-  }
-}
-
-// ══════════════════════════════════════════════════════
 // UTILS
 // ══════════════════════════════════════════════════════
 function fmtTime(s) {
@@ -2068,16 +1830,7 @@ function tickHeaderClock() {
 
   if (db.getActive()) updateNavDot(true);
 
-  // Restore Google Fit connection state from localStorage
-  if (localStorage.getItem('gf_connected') === '1') {
-    state.gfConnected = true;
-  }
-
   renderHome();
-
-  // initGoogleFit() is also called by the GSI script's onload attribute
-  // (covers the case where GSI loads before or after init runs)
-  if (typeof google !== 'undefined' && google.accounts) initGoogleFit();
 })();
 </script>
 </body>
