@@ -49,7 +49,7 @@
     }
     /* ── HEADER ── */
     .header {
-      background: rgba(17,24,39,0.80); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      background: rgba(17,24,39,0.10); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
       padding: 12px 20px;
       display: flex; align-items: center; justify-content: space-between;
       position: sticky; top: 0; z-index: 100;
@@ -516,7 +516,9 @@ function emptyEntry(date) {
     sleep: { bedtime:'', wakeup:'', phases:{ light:'', deep:'', rem:'', awake:'' } },
     supplements: supps,
     calories: '', steps: '',
-    workout: { notes:'', duration:'', totalWeight:'' }
+    workout: { notes:'', duration:'', totalWeight:'' },
+    rowing:    { distance:'', duration:'', avgSpeed:'', calories:'' },
+    treadmill: { distance:'', duration:'', avgSpeed:'', calories:'' }
   };
 }
 
@@ -526,6 +528,8 @@ let ddEntry = (function() {
   const saved = ddLoadAll()[key];
   if (saved) {
     allSupps().forEach(s => { if (saved.supplements[s] === undefined) saved.supplements[s] = false; });
+    if (!saved.rowing)    saved.rowing    = { distance:'', duration:'', avgSpeed:'', calories:'' };
+    if (!saved.treadmill) saved.treadmill = { distance:'', duration:'', avgSpeed:'', calories:'' };
     return saved;
   }
   return emptyEntry(key);
@@ -655,7 +659,7 @@ function renderWorkout() {
     </div>`;
 
   html += `
-    <div class="card">
+    <div class="card" style="background:rgba(31,41,55,0.10)">
       <div class="card-title">Temporizator pauză</div>
       <div class="timer-display ${timerClass}${t.running ? ' pulsing' : ''}" id="timer-display">${fmtTime(t.remaining)}</div>
       <div class="timer-progress">
@@ -672,14 +676,16 @@ function renderWorkout() {
         </button>
         <button class="btn flex-1 btn-secondary" onclick="resetTimer()">↺ Reset</button>
       </div>
-      <button class="btn btn-danger" id="stop-alarm-btn" onclick="stopAlarm()"
-        style="display:${t.alarmRinging ? 'block' : 'none'};margin-top:10px;animation:alarmPulse 0.6s ease-in-out infinite alternate">
-        🔕 Oprește alarma
+      <button class="btn ${t.alarmRinging ? 'btn-danger' : 'btn-secondary'}" id="stop-alarm-btn" onclick="stopAlarm()"
+        style="margin-top:10px;${t.alarmRinging
+          ? 'animation:alarmPulse 0.6s ease-in-out infinite alternate'
+          : 'opacity:0.4;cursor:default;pointer-events:none'}">
+        🔕 ${t.alarmRinging ? 'Oprește alarma' : 'Dismiss alarmă'}
       </button>
     </div>`;
 
   html += `
-    <div class="card">
+    <div class="card" style="background:rgba(31,41,55,0.10)">
       <div class="card-title">Adaugă exercițiu</div>
       <select class="input" id="ex-select" onchange="onSelectExercise(this.value)">
         <option value="">— Selectează exercițiu —</option>
@@ -891,6 +897,74 @@ function renderZi() {
     </div>
   </div>`;
 
+  // ── Rowing ──
+  html += `
+  <div class="card">
+    <div class="card-title"><span class="card-title-icon">🚣</span>Canotaj</div>
+    <div class="grid-2">
+      <div>
+        <label class="label">Distanță (m)</label>
+        <input type="number" class="input" id="inp-row-dist" placeholder="2000"
+               value="${e.rowing?.distance || ''}" inputmode="decimal"
+               oninput="ddEntry.rowing.distance=this.value;calcRowingSpeed()">
+      </div>
+      <div>
+        <label class="label">Durată (min)</label>
+        <input type="number" class="input" id="inp-row-dur" placeholder="10"
+               value="${e.rowing?.duration || ''}" inputmode="decimal"
+               oninput="ddEntry.rowing.duration=this.value;calcRowingSpeed()">
+      </div>
+    </div>
+    <div class="grid-2 mt-8">
+      <div>
+        <label class="label">Viteză medie (m/min)</label>
+        <input type="number" class="input" id="inp-row-speed" placeholder="—"
+               value="${e.rowing?.avgSpeed || ''}" inputmode="decimal" step="0.1"
+               oninput="ddEntry.rowing.avgSpeed=this.value">
+      </div>
+      <div>
+        <label class="label">Calorii (kcal)</label>
+        <input type="number" class="input" id="inp-row-cal" placeholder="80"
+               value="${e.rowing?.calories || ''}" inputmode="numeric"
+               oninput="ddEntry.rowing.calories=this.value">
+      </div>
+    </div>
+  </div>`;
+
+  // ── Treadmill ──
+  html += `
+  <div class="card">
+    <div class="card-title"><span class="card-title-icon">🏃</span>Bandă de alergare</div>
+    <div class="grid-2">
+      <div>
+        <label class="label">Distanță (km)</label>
+        <input type="number" class="input" id="inp-tm-dist" placeholder="3.0"
+               value="${e.treadmill?.distance || ''}" inputmode="decimal" step="0.1"
+               oninput="ddEntry.treadmill.distance=this.value;calcTreadmillSpeed()">
+      </div>
+      <div>
+        <label class="label">Durată (min)</label>
+        <input type="number" class="input" id="inp-tm-dur" placeholder="30"
+               value="${e.treadmill?.duration || ''}" inputmode="decimal"
+               oninput="ddEntry.treadmill.duration=this.value;calcTreadmillSpeed()">
+      </div>
+    </div>
+    <div class="grid-2 mt-8">
+      <div>
+        <label class="label">Viteză medie (km/h)</label>
+        <input type="number" class="input" id="inp-tm-speed" placeholder="—"
+               value="${e.treadmill?.avgSpeed || ''}" inputmode="decimal" step="0.1"
+               oninput="ddEntry.treadmill.avgSpeed=this.value">
+      </div>
+      <div>
+        <label class="label">Calorii (kcal)</label>
+        <input type="number" class="input" id="inp-tm-cal" placeholder="200"
+               value="${e.treadmill?.calories || ''}" inputmode="numeric"
+               oninput="ddEntry.treadmill.calories=this.value">
+      </div>
+    </div>
+  </div>`;
+
   html += `<button class="btn btn-primary" style="margin-bottom:10px" onclick="saveToday()">💾 Salvează ziua</button>`;
 
   document.getElementById('zi-content').innerHTML = html;
@@ -960,6 +1034,54 @@ function renderHistory() {
     </div>
   </div>`;
 
+  // ── Rowing 30-day data ──
+  const rowingDays = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    const ent = ddAll[key];
+    rowingDays.push({
+      label:    d.toLocaleDateString('ro-RO', { day:'numeric', month:'short' }),
+      distance: ent?.rowing?.distance ? Number(ent.rowing.distance) : 0,
+      calories: ent?.rowing?.calories ? Number(ent.rowing.calories) : 0,
+      hasData:  !!(ent?.rowing?.distance || ent?.rowing?.duration)
+    });
+  }
+
+  html += `
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title"><span class="card-title-icon">🚣</span>Evoluție canotaj — 30 zile</div>
+    <canvas id="chart-rowing" style="width:100%;height:160px;display:block"></canvas>
+    <div class="chart-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#06b6d4"></div>Distanță (m ÷10)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Calorii (kcal)</div>
+    </div>
+  </div>`;
+
+  // ── Treadmill 30-day data ──
+  const treadmillDays = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    const ent = ddAll[key];
+    treadmillDays.push({
+      label:    d.toLocaleDateString('ro-RO', { day:'numeric', month:'short' }),
+      distance: ent?.treadmill?.distance ? Number(ent.treadmill.distance) * 1000 : 0, // convert km→m for display
+      calories: ent?.treadmill?.calories ? Number(ent.treadmill.calories) : 0,
+      hasData:  !!(ent?.treadmill?.distance || ent?.treadmill?.duration)
+    });
+  }
+
+  html += `
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title"><span class="card-title-icon">🏃</span>Evoluție bandă alergare — 30 zile</div>
+    <canvas id="chart-treadmill" style="width:100%;height:160px;display:block"></canvas>
+    <div class="chart-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Distanță (m ÷10)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Calorii (kcal)</div>
+    </div>
+  </div>`;
+
   // ── Recent daily log items ──
   if (ddDates.length > 0) {
     html += `<div class="section-title">Jurnal zilnic recent</div>`;
@@ -976,6 +1098,8 @@ function renderHistory() {
           ${ent.calories ? `<span class="badge" style="background:rgba(249,115,22,.15);color:var(--accent)">🍽️ ${Number(ent.calories).toLocaleString()} kcal</span>` : ''}
           ${ent.steps ? `<span class="badge" style="background:rgba(34,197,94,.15);color:var(--success)">👟 ${Number(ent.steps).toLocaleString()} pași</span>` : ''}
           ${ent.workout.duration ? `<span class="badge" style="background:rgba(168,85,247,.15);color:var(--purple)">💪 ${ent.workout.duration} min</span>` : ''}
+          ${ent.rowing?.distance ? `<span class="badge" style="background:rgba(6,182,212,.15);color:#06b6d4">🚣 ${Number(ent.rowing.distance).toLocaleString()} m</span>` : ''}
+          ${ent.treadmill?.distance ? `<span class="badge" style="background:rgba(34,197,94,.15);color:var(--success)">🏃 ${Number(ent.treadmill.distance)} km</span>` : ''}
           ${taken.length ? `<span class="badge" style="background:rgba(255,255,255,.06);color:var(--text2)">💊 ${taken.length} suppl.</span>` : ''}
         </div>
       </div>`;
@@ -1005,6 +1129,8 @@ function renderHistory() {
   requestAnimationFrame(() => {
     drawSleepChart(sleepDays);
     drawWorkoutEvolutionChart(wDays);
+    drawCardioChart('chart-rowing',    rowingDays,    '#06b6d4', '#f59e0b');
+    drawCardioChart('chart-treadmill', treadmillDays, '#22c55e', '#f59e0b');
   });
 }
 
@@ -1284,6 +1410,24 @@ function updateTimerUI() {
     b.style.width = pct + '%';
     b.style.background = isWarn ? '#ef4444' : isDone ? '#22c55e' : 'var(--accent)';
   }
+  const ab = document.getElementById('stop-alarm-btn');
+  if (ab) {
+    if (t.alarmRinging) {
+      ab.className = 'btn btn-danger';
+      ab.style.opacity = '1';
+      ab.style.cursor = 'pointer';
+      ab.style.pointerEvents = 'auto';
+      ab.style.animation = 'alarmPulse 0.6s ease-in-out infinite alternate';
+      ab.textContent = '🔕 Oprește alarma';
+    } else {
+      ab.className = 'btn btn-secondary';
+      ab.style.opacity = '0.4';
+      ab.style.cursor = 'default';
+      ab.style.pointerEvents = 'none';
+      ab.style.animation = 'none';
+      ab.textContent = '🔕 Dismiss alarmă';
+    }
+  }
 }
 
 let alarmAudio = null;
@@ -1381,6 +1525,26 @@ function addCustomSupp() {
   ddEntry.supplements[name] = false;
   inp.value = '';
   renderZi();
+}
+
+function calcRowingSpeed() {
+  const dist = parseFloat(document.getElementById('inp-row-dist')?.value) || 0;
+  const dur  = parseFloat(document.getElementById('inp-row-dur')?.value)  || 0;
+  if (dist > 0 && dur > 0) {
+    const spd = (dist / dur).toFixed(1);
+    const inp = document.getElementById('inp-row-speed');
+    if (inp) { inp.value = spd; ddEntry.rowing.avgSpeed = spd; }
+  }
+}
+
+function calcTreadmillSpeed() {
+  const dist = parseFloat(document.getElementById('inp-tm-dist')?.value) || 0;
+  const dur  = parseFloat(document.getElementById('inp-tm-dur')?.value)  || 0;
+  if (dist > 0 && dur > 0) {
+    const spd = ((dist / dur) * 60).toFixed(1); // km/h
+    const inp = document.getElementById('inp-tm-speed');
+    if (inp) { inp.value = spd; ddEntry.treadmill.avgSpeed = spd; }
+  }
 }
 
 function saveToday() {
@@ -1504,6 +1668,66 @@ function drawWorkoutEvolutionChart(days) {
     ctx.fillText(d.label, x + bw + gap/2, pad.top + ch + 14);
   });
 
+  ctx.strokeStyle = '#374151'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top + ch);
+  ctx.lineTo(pad.left + cw, pad.top + ch);
+  ctx.stroke();
+}
+
+// ══════════════════════════════════════════════════════
+// CHART: CARDIO (Rowing & Treadmill — 30 days, shared renderer)
+// ══════════════════════════════════════════════════════
+function drawCardioChart(canvasId, days, distColor, calColor) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth, H = 160;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = { top: 10, right: 8, bottom: 32, left: 8 };
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top - pad.bottom;
+  const n  = days.length;
+  const bw = (cw / n) * 0.35;
+  const gap = (cw / n) * 0.04;
+
+  const maxDist = Math.max(...days.map(d => d.distance / 10), 1);
+  const maxCal  = Math.max(...days.map(d => d.calories),      1);
+  const scale   = Math.max(maxDist, maxCal);
+
+  days.forEach((d, i) => {
+    const x    = pad.left + i * (cw / n) + (cw / n) * 0.13;
+    const dstH = ((d.distance / 10) / scale) * ch;
+    const calH = (d.calories / scale) * ch;
+
+    // distance bar
+    ctx.fillStyle = distColor + 'cc';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, pad.top + ch - dstH, bw, Math.max(dstH, 1), [3,3,0,0]);
+    else ctx.rect(x, pad.top + ch - dstH, bw, Math.max(dstH, 1));
+    ctx.fill();
+
+    // calories bar
+    ctx.fillStyle = calColor + 'cc';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x + bw + gap, pad.top + ch - calH, bw, Math.max(calH, 1), [3,3,0,0]);
+    else ctx.rect(x + bw + gap, pad.top + ch - calH, bw, Math.max(calH, 1));
+    ctx.fill();
+
+    // date labels (first, last, every 5th)
+    if (i === 0 || i === n - 1 || i % 5 === 4) {
+      ctx.fillStyle = d.hasData ? '#f9fafb' : '#6b7280';
+      ctx.font = (d.hasData ? 'bold ' : '') + '9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(d.label, x + bw + gap / 2, pad.top + ch + 14);
+    }
+  });
+
+  // baseline
   ctx.strokeStyle = '#374151'; ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(pad.left, pad.top + ch);
